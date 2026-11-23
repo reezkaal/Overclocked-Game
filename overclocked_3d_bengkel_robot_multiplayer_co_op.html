@@ -1,0 +1,2953 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>OVERCLOCKED! 3D — Bengkel Robot Multiplayer Co-op</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: manipulation;
+    }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #2b2119 0%, #14100d 60%, #0c0907 100%);
+      color: #faf5ef;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .hazard-trim {
+      height: 4px;
+      background: repeating-linear-gradient(
+        -45deg,
+        #f59e0b,
+        #f59e0b 10px,
+        #1c1917 10px,
+        #1c1917 20px
+      );
+    }
+    .workshop-panel {
+      background: linear-gradient(180deg, rgba(38, 31, 26, 0.94) 0%, rgba(24, 20, 17, 0.96) 100%);
+      border: 1px solid rgba(217, 119, 6, 0.28);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 237, 213, 0.08);
+    }
+    .canvas-shell {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      flex: 1 1 0;
+      min-height: 0;
+      background: radial-gradient(circle at 50% 35%, #34281f 0%, #17120e 100%);
+      border-radius: 1rem;
+      overflow: hidden;
+      border: 2px solid rgba(245, 158, 11, 0.34);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0,0,0,0.6), inset 0 0 28px rgba(0,0,0,0.45);
+      transition: box-shadow 0.3s ease, border-color 0.3s ease;
+    }
+    .canvas-shell.fire-alert {
+      border-color: rgba(239, 68, 68, 0.85);
+      box-shadow: 0 0 38px rgba(239, 68, 68, 0.35), inset 0 0 42px rgba(239, 68, 68, 0.35);
+    }
+    .canvas-shell.overclock-glow {
+      border-color: rgba(250, 204, 21, 0.9);
+      box-shadow: 0 0 38px rgba(245, 158, 11, 0.38), inset 0 0 32px rgba(245, 158, 11, 0.22);
+    }
+    #gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: grab;
+    }
+    #gameCanvas:active { cursor: grabbing; }
+    #fxOverlayCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .arcade-btn {
+      border-bottom: 3px solid rgba(0, 0, 0, 0.38);
+      transition: transform 0.1s ease, filter 0.15s ease;
+    }
+    .arcade-btn:hover { filter: brightness(1.07); }
+    .arcade-btn:active {
+      transform: translateY(2px);
+      border-bottom-width: 1px;
+    }
+    .job-clipboard {
+      position: relative;
+      background: linear-gradient(180deg, #2b241f 0%, #1d1815 100%);
+      border: 1.5px solid rgba(245, 158, 11, 0.35);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s ease;
+    }
+    .job-clipboard::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 28px;
+      height: 6px;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #a8a29e, #f5f5f4, #78716c);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .touch-pad-btn {
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+      50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+    }
+    .pulse-cta { animation: pulseGlow 2.2s infinite; }
+
+    /* Custom scrollbars for clean fit */
+    .custom-scrollbar::-webkit-scrollbar {
+      height: 4px;
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(28, 25, 23, 0.6);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(245, 158, 11, 0.4);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(245, 158, 11, 0.7);
+    }
+
+    /* Responsive controls behavior */
+    @media (min-width: 768px) {
+      #touchControls {
+        display: none !important;
+      }
+    }
+    @media (orientation: landscape) and (max-height: 520px) {
+      #touchControls {
+        position: absolute;
+        bottom: 8px;
+        left: 10px;
+        right: 10px;
+        margin-top: 0 !important;
+        padding: 0 !important;
+        z-index: 25;
+        pointer-events: none;
+      }
+      #touchControls .touch-group-left,
+      #touchControls .touch-group-right {
+        pointer-events: auto;
+        background: rgba(20, 16, 13, 0.75);
+        backdrop-filter: blur(6px);
+        padding: 6px;
+        border-radius: 1rem;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      }
+    }
+    @media (max-height: 720px) {
+      #legendStrip {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="h-full max-h-[100dvh] flex flex-col text-stone-100 overflow-hidden select-none">
+
+  <!-- Hazard Accent Top Strip -->
+  <div class="hazard-trim w-full shrink-0"></div>
+
+  <!-- Top Navigation Bar -->
+  <header class="w-full shrink-0 border-b border-amber-500/20 bg-stone-950/95 backdrop-blur-md z-30">
+    <div class="max-w-7xl mx-auto px-2.5 sm:px-4 h-11 sm:h-12 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-amber-400 via-orange-500 to-amber-700 flex items-center justify-center shadow-md shadow-orange-600/30 border border-amber-300/40 shrink-0">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-stone-950" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <div class="leading-tight truncate">
+          <h1 class="font-black text-sm sm:text-base tracking-tight text-amber-50 truncate">
+            OVERCLOCKED<span class="text-amber-400">!</span>
+            <span class="text-[9px] align-top ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 font-extrabold hidden xs:inline">BENGKEL 3D</span>
+          </h1>
+          <p class="text-[10px] text-stone-400 hidden sm:block truncate">Co-op Bengkel Perakitan Robot Multiplayer</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <span id="netBadge" class="hidden items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/35">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="netBadgeText">Online</span>
+        </span>
+        <button id="btnHowTo" type="button" class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-stone-800 hover:bg-stone-700 text-amber-100 border border-stone-600/80 arcade-btn whitespace-nowrap">
+          Resep &amp; Kontrol
+        </button>
+        <button id="btnMute" type="button" title="Suara" class="p-1.5 sm:p-2 rounded-lg bg-stone-800 hover:bg-stone-700 text-amber-200 border border-stone-600/80 arcade-btn" aria-label="Toggle Suara">
+          <svg id="iconSoundOn" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          </svg>
+          <svg id="iconSoundOff" class="w-4 h-4 hidden text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 min-h-0 w-full max-w-7xl mx-auto px-2 sm:px-3 py-1 sm:py-1.5 flex flex-col gap-1 sm:gap-1.5 overflow-hidden">
+
+    <!-- HUD Bar (visible during gameplay) -->
+    <section id="hudBar" class="hidden shrink-0 flex-col gap-1 sm:gap-1.5">
+      <div class="workshop-panel rounded-xl px-2.5 sm:px-3 py-1.5 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+          <div class="flex items-center gap-1.5 bg-stone-950/80 border border-amber-500/30 rounded-lg px-2 sm:px-2.5 py-0.5 sm:py-1">
+            <span class="text-[9px] uppercase tracking-widest text-amber-400/80 font-extrabold hidden xs:inline">Skor</span>
+            <span id="hudScore" class="text-base sm:text-xl font-black text-amber-300 tabular-nums">0</span>
+          </div>
+          <div id="hudComboWrap" class="hidden items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-r from-orange-600 to-amber-500 text-stone-950 text-[11px] font-black shadow-md shadow-orange-600/30">
+            🔥 x<span id="hudCombo">1</span>
+          </div>
+          <div id="hudOverclockBadge" class="hidden items-center gap-1 px-2 py-0.5 rounded-lg bg-yellow-400/20 border border-yellow-400/60 text-yellow-200 text-[11px] font-black animate-pulse">
+            ⚡ +25%
+          </div>
+          <div class="hidden xl:flex items-center gap-1.5 text-xs text-stone-400 bg-stone-900/70 px-2 py-0.5 rounded-lg border border-stone-800">
+            <span>Target:</span>
+            <span class="text-amber-300 font-bold">★300</span>
+            <span class="text-stone-600">•</span>
+            <span class="text-amber-300 font-bold">★★600</span>
+            <span class="text-stone-600">•</span>
+            <span class="text-amber-300 font-bold">★★★950</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <div id="hudTimerBox" class="flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-stone-950 border border-stone-700 font-black text-sm sm:text-base tabular-nums text-amber-100">
+            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span id="hudTimer">02:30</span>
+          </div>
+          <button id="btnGuideToggle" type="button" title="Panduan" class="px-2 py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 arcade-btn whitespace-nowrap">
+            💡 <span class="hidden sm:inline">Panduan</span>
+          </button>
+          <button id="btnCamToggle" type="button" title="Kamera 3D" class="px-2 py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-stone-800 hover:bg-stone-700 text-sky-200 border border-stone-600 arcade-btn whitespace-nowrap">
+            🎥 <span class="hidden sm:inline">Dinamis</span>
+          </button>
+          <button id="btnPause" type="button" title="Jeda" class="px-2 py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-stone-800 hover:bg-stone-700 text-stone-100 border border-stone-600 arcade-btn">
+            Jeda
+          </button>
+          <button id="btnBackMenu" type="button" title="Menu" class="px-2 py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-rose-600/20 hover:bg-rose-600/30 text-rose-200 border border-rose-500/40 arcade-btn">
+            Menu
+          </button>
+        </div>
+      </div>
+
+      <!-- Foreman Walkie-Talkie Live Coach Banner -->
+      <div id="coachBanner" class="flex items-center justify-between gap-2 bg-gradient-to-r from-amber-500/15 via-orange-600/10 to-stone-900/90 border border-amber-400/30 rounded-lg px-2.5 py-1 text-[11px] sm:text-xs shadow">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="px-1.5 py-0.5 rounded bg-amber-400 text-stone-950 text-[9px] font-black uppercase tracking-wider shrink-0">📻 Mandor</span>
+          <span id="coachIcon" class="text-sm shrink-0">👉</span>
+          <span id="coachText" class="font-bold text-amber-50 truncate">Ikuti panah 3D kuning! Ambil bahan lalu proses di mesin bengkel.</span>
+        </div>
+        <span class="hidden md:inline-block text-[10px] text-amber-200/70 shrink-0">Drag = Putar 3D • Scroll = Zoom</span>
+      </div>
+
+      <!-- Active Workshop Job Clipboards -->
+      <div id="ordersStrip" class="flex items-stretch gap-2 overflow-x-auto py-0.5 min-h-[64px] sm:min-h-[70px] custom-scrollbar"></div>
+    </section>
+
+    <!-- Game Stage Container -->
+    <section class="relative flex-1 min-h-0 w-full flex flex-col items-center justify-center overflow-hidden">
+      <div class="canvas-shell" id="canvasShell">
+        <canvas id="gameCanvas"></canvas>
+        <canvas id="fxOverlayCanvas"></canvas>
+
+        <!-- Hover 3D Station Tooltip -->
+        <div id="hoverTooltip" class="hidden absolute top-3 left-3 z-15 pointer-events-none bg-stone-950/92 border border-amber-400/50 rounded-xl px-3.5 py-2.5 shadow-2xl max-w-xs backdrop-blur-md">
+          <div id="hoverTitle" class="text-xs font-black text-amber-300">Stasiun Bengkel</div>
+          <div id="hoverDesc" class="text-[11px] text-stone-200 mt-0.5 leading-snug">Deskripsi</div>
+        </div>
+
+        <!-- Start / Lobby Overlay -->
+        <div id="menuOverlay" class="absolute inset-0 bg-stone-950/42 backdrop-blur-[1.5px] flex flex-col items-center justify-center p-2 sm:p-4 overflow-y-auto z-20 custom-scrollbar">
+          <div class="w-full max-w-2xl max-h-[96%] flex flex-col my-auto workshop-panel rounded-2xl overflow-hidden shadow-2xl">
+            <div class="hazard-trim w-full shrink-0"></div>
+            <div class="overflow-y-auto px-3 sm:px-6 py-2.5 sm:py-3.5 flex flex-col gap-2 sm:gap-2.5 custom-scrollbar">
+              <!-- Hero Title -->
+              <div class="text-center">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-[10px] sm:text-[11px] font-extrabold tracking-wide mb-1">
+                  <span>🔧</span> BENGKEL ROBOT 3D CO-OP — 4 PETA UNIK!
+                </div>
+                <h2 class="text-xl sm:text-3xl font-black tracking-tight text-amber-50 drop-shadow">
+                  OVERCLOCKED<span class="text-amber-400">: Bengkel Kilat</span>
+                </h2>
+                <!-- 4-Step Visual Flow Strip -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2 text-[10px] sm:text-[11px]">
+                  <div class="bg-stone-900/90 border border-amber-500/25 rounded-xl p-1.5">
+                    <div class="font-black text-amber-400">1. AMBIL 📦</div>
+                    <div class="text-stone-300">Rangka / Baterai / Chip</div>
+                  </div>
+                  <div class="bg-stone-900/90 border border-emerald-500/25 rounded-xl p-1.5">
+                    <div class="font-black text-emerald-400">2. PROSES 🔥</div>
+                    <div class="text-stone-300">Las / Cas / Code (E)</div>
+                  </div>
+                  <div class="bg-stone-900/90 border border-indigo-500/25 rounded-xl p-1.5">
+                    <div class="font-black text-indigo-300">3. RAKIT 🔧</div>
+                    <div class="text-stone-300">Gabung di Meja Rakit</div>
+                  </div>
+                  <div class="bg-stone-900/90 border border-sky-500/25 rounded-xl p-1.5">
+                    <div class="font-black text-sky-300">4. KIRIM 🚚</div>
+                    <div class="text-stone-300">Taruh di Belt Kuning</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Mode Selector Tabs -->
+              <div class="grid grid-cols-3 gap-1.5 sm:gap-2 bg-stone-950/90 p-1 sm:p-1.5 rounded-xl border border-stone-800">
+                <button type="button" data-mode="ai" class="mode-tab px-2 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-extrabold transition bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 shadow">
+                  🤖 Solo + AI
+                </button>
+                <button type="button" data-mode="local" class="mode-tab px-2 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition text-stone-300 hover:bg-stone-800">
+                  🎮 2P Lokal
+                </button>
+                <button type="button" data-mode="online" class="mode-tab px-2 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition text-stone-300 hover:bg-stone-800">
+                  🌐 Online / Room
+                </button>
+              </div>
+
+              <!-- Online Room Panel -->
+              <div id="onlinePanel" class="hidden bg-stone-900/95 border border-amber-500/30 rounded-xl p-2.5 sm:p-3 flex flex-col gap-2">
+                <div class="text-xs font-extrabold text-amber-300 uppercase tracking-wider">Multiplayer Room (P2P / 2 Tab Browser)</div>
+                <div id="onlineSetupRow" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button id="btnCreateRoom" type="button" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs sm:text-sm arcade-btn">
+                    + Buat Room (Jadi Host)
+                  </button>
+                  <div class="flex gap-1.5">
+                    <input id="inputRoomCode" type="text" maxlength="9" placeholder="Kode Room (mis. 4821)" class="flex-1 min-w-0 px-3 py-2 rounded-xl bg-stone-950 border border-stone-700 text-sm font-mono uppercase text-amber-100 placeholder-stone-500 focus:outline-none focus:border-amber-400" />
+                    <button id="btnJoinRoom" type="button" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm arcade-btn shrink-0">
+                      Gabung
+                    </button>
+                  </div>
+                </div>
+                <div id="onlineStatusBox" class="hidden items-center justify-between gap-2 bg-stone-950 border border-stone-800 rounded-xl px-3 py-2">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span id="onlineDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+                    <span id="onlineStatusText" class="text-xs text-stone-200 truncate">Menunggu pemain 2...</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <button id="btnCopyRoom" type="button" class="hidden px-2.5 py-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-xs font-mono font-bold text-amber-300 border border-stone-700">
+                      Salin Kode
+                    </button>
+                    <button id="btnLeaveRoom" type="button" class="px-2 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-xs font-bold text-rose-300">
+                      Keluar
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4 Distinct Map Cards -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+                <button type="button" data-map="0" class="map-card text-left p-2 sm:p-2.5 rounded-xl border-2 border-amber-400 bg-stone-900/95 transition hover:bg-stone-800/90">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="text-[11px] font-black text-amber-50 truncate">1. Garasi Pemula</span>
+                  </div>
+                  <div class="flex items-center justify-between mt-1">
+                    <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[9px] font-bold">Terbuka</span>
+                    <span class="map-stars text-[10px] text-amber-400" data-map-stars="0">☆☆☆</span>
+                  </div>
+                </button>
+                <button type="button" data-map="1" class="map-card text-left p-2 sm:p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="text-[11px] font-black text-amber-50 truncate">2. Meja Oper</span>
+                  </div>
+                  <div class="flex items-center justify-between mt-1">
+                    <span class="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 text-[9px] font-bold">Wajib Lempar</span>
+                    <span class="map-stars text-[10px] text-amber-400" data-map-stars="1">☆☆☆</span>
+                  </div>
+                </button>
+                <button type="button" data-map="2" class="map-card text-left p-2 sm:p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="text-[11px] font-black text-amber-50 truncate">3. Jalur Belt</span>
+                  </div>
+                  <div class="flex items-center justify-between mt-1">
+                    <span class="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[9px] font-bold">Conveyor Jalan</span>
+                    <span class="map-stars text-[10px] text-amber-400" data-map-stars="2">☆☆☆</span>
+                  </div>
+                </button>
+                <button type="button" data-map="3" class="map-card text-left p-2 sm:p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="text-[11px] font-black text-amber-50 truncate">4. Rush Hour</span>
+                  </div>
+                  <div class="flex items-center justify-between mt-1">
+                    <span class="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 text-[9px] font-bold">Oli + 2x Las</span>
+                    <span class="map-stars text-[10px] text-amber-400" data-map-stars="3">☆☆☆</span>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Quick Controls Summary + Play Button -->
+              <div class="flex flex-col sm:flex-row items-center justify-between gap-2 pt-0.5">
+                <div id="modeHintText" class="text-[10px] sm:text-[11px] text-stone-300 bg-stone-950/90 border border-stone-800 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 w-full sm:w-auto leading-relaxed">
+                  <span class="text-sky-400 font-extrabold">Kamu (P1):</span> <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">WASD</kbd> / Analog Stick + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">E</kbd> Aksi + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Q</kbd> Lempar + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Shift</kbd> Dash<br/>
+                  <span class="text-orange-400 font-extrabold">Partner AI (P2):</span> Otomatis bantu las, cas, coding &amp; padamkan api!
+                </div>
+                <button id="btnStartGame" type="button" class="w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 text-stone-950 font-black text-sm sm:text-base tracking-wide shadow-xl shadow-orange-600/35 arcade-btn pulse-cta shrink-0">
+                  MULAI SHIFT ▶
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="pauseOverlay" class="hidden absolute inset-0 bg-stone-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-20">
+          <div class="workshop-panel rounded-2xl p-5 max-w-xs w-full text-center shadow-2xl">
+            <div class="text-xs font-extrabold uppercase tracking-widest text-amber-400">Istirahat Bengkel</div>
+            <h3 class="text-xl sm:text-2xl font-black text-amber-50 mt-1">Shift Dijeda</h3>
+            <p class="text-xs text-stone-400 mt-1">Mesin las dan conveyor sedang standby.</p>
+            <div class="flex flex-col gap-2 mt-4">
+              <button id="btnResume" type="button" class="w-full py-2.5 rounded-xl bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 font-black text-sm arcade-btn">Lanjutkan</button>
+              <button id="btnRestartPause" type="button" class="w-full py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-100 font-bold text-sm border border-stone-600 arcade-btn">Ulangi Shift</button>
+              <button id="btnQuitPause" type="button" class="w-full py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-200 font-bold text-sm border border-rose-500/40 arcade-btn">Kembali ke Menu</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="gameOverOverlay" class="hidden absolute inset-0 bg-stone-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-3 sm:p-4 z-20">
+          <div class="workshop-panel rounded-2xl overflow-hidden max-w-sm w-full text-center shadow-2xl">
+            <div class="hazard-trim w-full"></div>
+            <div class="p-5 sm:p-6">
+              <div class="text-xs font-extrabold uppercase tracking-widest text-amber-400">Laporan Shift Selesai!</div>
+              <div id="endStars" class="text-3xl sm:text-4xl my-1.5 sm:my-2 tracking-widest text-amber-400 drop-shadow">★★★</div>
+              <div class="text-2xl sm:text-3xl font-black text-amber-50 tabular-nums"><span id="endScore">0</span> <span class="text-sm font-semibold text-stone-400">pts</span></div>
+              <div class="grid grid-cols-3 gap-1.5 sm:gap-2 my-3 text-center">
+                <div class="bg-stone-950/90 rounded-xl p-2 border border-stone-800">
+                  <div class="text-base sm:text-lg font-black text-emerald-400" id="endDelivered">0</div>
+                  <div class="text-[10px] text-stone-400 font-semibold">Terkirim</div>
+                </div>
+                <div class="bg-stone-950/90 rounded-xl p-2 border border-stone-800">
+                  <div class="text-base sm:text-lg font-black text-rose-400" id="endMissed">0</div>
+                  <div class="text-[10px] text-stone-400 font-semibold">Hangus</div>
+                </div>
+                <div class="bg-stone-950/90 rounded-xl p-2 border border-stone-800">
+                  <div class="text-base sm:text-lg font-black text-amber-400" id="endCombo">x1</div>
+                  <div class="text-[10px] text-stone-400 font-semibold">Max Combo</div>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button id="btnPlayAgain" type="button" class="flex-1 py-2.5 rounded-xl bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 font-black text-xs sm:text-sm arcade-btn">Main Lagi</button>
+                <button id="btnEndMenu" type="button" class="flex-1 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-100 font-bold text-xs sm:text-sm border border-stone-600 arcade-btn">Pilih Peta</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- On-Screen Touch Controls (Mobile Analog & Actions) -->
+      <div id="touchControls" class="hidden w-full shrink-0 flex items-center justify-between gap-2 sm:hidden px-2 pt-1 pb-1">
+        
+        <!-- Left Thumb: Virtual Analog Joystick Zone -->
+        <div id="joystickZone" class="touch-group-left relative w-28 h-28 xs:w-32 xs:h-32 flex items-center justify-center select-none touch-none">
+          <!-- Joystick Base Ring -->
+          <div id="joystickBase" class="relative w-24 h-24 xs:w-28 xs:h-28 rounded-full border-2 border-amber-500/40 bg-stone-950/75 shadow-lg shadow-black/60 flex items-center justify-center backdrop-blur-sm">
+            <!-- Crosshair direction guides -->
+            <div class="absolute top-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-amber-400/50"></div>
+            <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-amber-400/50"></div>
+            <div class="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-amber-400/50"></div>
+            <div class="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-amber-400/50"></div>
+            <div class="w-8 h-8 rounded-full border border-amber-500/20 bg-stone-900/40 pointer-events-none"></div>
+
+            <!-- Draggable Analog Knob -->
+            <div id="joystickKnob" class="absolute w-12 h-12 xs:w-14 xs:h-14 rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-amber-700 border-2 border-amber-200/90 shadow-xl shadow-orange-600/40 flex items-center justify-center pointer-events-none transition-transform duration-75 ease-out">
+              <div class="w-4 h-4 rounded-full bg-stone-950/40 border border-amber-200/50 flex items-center justify-center">
+                <div class="w-1.5 h-1.5 rounded-full bg-amber-200 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center Player Badge (Compact) -->
+        <div class="hidden xs:flex flex-col items-center justify-center opacity-70 pointer-events-none select-none">
+          <span class="text-[10px] font-black tracking-widest text-amber-400 uppercase">P1 • BOLT</span>
+          <span class="text-[9px] text-stone-400">Bengkel 3D</span>
+        </div>
+
+        <!-- Right Thumb: Ergonomic Action Cluster -->
+        <div class="touch-group-right relative w-32 h-28 xs:w-36 xs:h-32 flex items-center justify-center select-none touch-none">
+          <!-- Secondary: Lempar (Top-Left of primary) -->
+          <button type="button" data-act="throw" class="touch-pad-btn absolute top-0 left-1 w-11 h-11 xs:w-12 xs:h-12 rounded-xl bg-sky-600/90 active:bg-sky-400 border border-sky-300/60 shadow-lg text-white font-extrabold flex flex-col items-center justify-center active:scale-90 transition-transform">
+            <span class="text-sm leading-none">📦</span>
+            <span class="text-[8px] font-black uppercase tracking-tight">Lempar</span>
+          </button>
+
+          <!-- Secondary: Dash (Top-Right of primary) -->
+          <button type="button" data-act="dash" class="touch-pad-btn absolute top-0 right-1 w-11 h-11 xs:w-12 xs:h-12 rounded-xl bg-indigo-600/90 active:bg-indigo-400 border border-indigo-300/60 shadow-lg text-white font-extrabold flex flex-col items-center justify-center active:scale-90 transition-transform">
+            <span class="text-sm leading-none">⚡</span>
+            <span class="text-[8px] font-black uppercase tracking-tight">Dash</span>
+          </button>
+
+          <!-- Primary: Aksi / Rakit / Ambil / Taruh (Bottom Center, Big & Prominent) -->
+          <button type="button" data-act="action" class="touch-pad-btn absolute bottom-0 right-2 xs:right-3 w-20 h-14 xs:w-24 xs:h-16 rounded-2xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 active:from-amber-300 active:to-orange-500 text-stone-950 border-2 border-amber-200/80 shadow-xl shadow-orange-600/40 font-black flex flex-col items-center justify-center active:scale-90 transition-transform pulse-cta">
+            <span class="text-base leading-none">🔧</span>
+            <span class="text-[10px] xs:text-[11px] font-black uppercase tracking-wider">AKSI / RAKIT</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Compact Workshop Station Legend Strip (Desktop) -->
+      <div id="legendStrip" class="w-full shrink-0 hidden sm:grid grid-cols-4 gap-2 text-[11px] mt-1">
+        <div class="workshop-panel rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/35 text-amber-300 flex items-center justify-center font-bold shrink-0 text-xs">🔥</span>
+          <div class="leading-tight"><strong class="text-amber-100">Mesin Las:</strong> <span class="text-stone-400">Rangka → Las (3 dtk)</span></div>
+        </div>
+        <div class="workshop-panel rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-500/35 text-emerald-300 flex items-center justify-center font-bold shrink-0 text-xs">⚡</span>
+          <div class="leading-tight"><strong class="text-amber-100">Dock Cas:</strong> <span class="text-stone-400">Baterai → Penuh</span></div>
+        </div>
+        <div class="workshop-panel rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-500/35 text-cyan-300 flex items-center justify-center font-bold shrink-0 text-xs">💻</span>
+          <div class="leading-tight"><strong class="text-amber-100">Terminal Code:</strong> <span class="text-stone-400">Chip lalu <strong>tahan E</strong></span></div>
+        </div>
+        <div class="workshop-panel rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 flex items-center justify-center font-bold shrink-0 text-xs">🤖</span>
+          <div class="leading-tight"><strong class="text-amber-100">Rakit &amp; Kirim:</strong> <span class="text-stone-400">Meja → Belt</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-stone-900 border border-amber-400/50 text-xs font-bold text-amber-100 shadow-2xl opacity-0 pointer-events-none transition-opacity duration-200 z-50"></div>
+
+  <!-- Modal: Resep & Kontrol -->
+  <div id="modalHowTo" class="hidden fixed inset-0 bg-stone-950/80 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+    <div class="workshop-panel rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="hazard-trim w-full"></div>
+      <div class="p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-black text-amber-50">Buku Panduan Bengkel &amp; Resep Robot</h3>
+          <button type="button" data-close-modal="modalHowTo" class="w-8 h-8 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 font-bold">✕</button>
+        </div>
+        <div class="space-y-3 text-xs text-stone-300">
+          <div class="bg-stone-950/90 rounded-xl p-3.5 border border-stone-800">
+            <div class="font-extrabold text-amber-400 mb-2">4 Resep Robot (Gabungkan komponen jadi di meja mana saja):</div>
+            <ul class="space-y-1.5">
+              <li>• <strong class="text-white">Bot Mini (100 pts):</strong> Rangka Las + Baterai Penuh</li>
+              <li>• <strong class="text-white">Bot Pintar (120 pts):</strong> Rangka Las + Chip Terprogram</li>
+              <li>• <strong class="text-white">Drone Kilat (110 pts):</strong> Baterai Penuh + Chip Terprogram</li>
+              <li>• <strong class="text-white">Bot Turbo (180 pts):</strong> Rangka Las + Baterai Penuh + Chip Terprogram</li>
+            </ul>
+          </div>
+          <div class="bg-stone-950/90 rounded-xl p-3.5 border border-stone-800">
+            <div class="font-extrabold text-sky-400 mb-2">Kontrol Keyboard &amp; Kamera 3D:</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <div class="font-bold text-sky-300">Pemain 1 (Bolt)</div>
+                <div>Gerak: <strong>W A S D</strong></div>
+                <div>Ambil / Taruh / Coding: <strong>E</strong> atau <strong>F</strong></div>
+                <div>Lempar Komponen: <strong>Q</strong></div>
+                <div>Dash / Sprint: <strong>Left Shift</strong></div>
+              </div>
+              <div>
+                <div class="font-bold text-orange-300">Pemain 2 (Spark)</div>
+                <div>Gerak: <strong>Tombol Panah</strong></div>
+                <div>Ambil / Taruh / Coding: <strong>Enter</strong> atau <strong>L</strong></div>
+                <div>Lempar Komponen: <strong>K</strong> atau <strong>.</strong></div>
+                <div>Dash / Sprint: <strong>Right Shift</strong></div>
+              </div>
+            </div>
+            <div class="mt-2 pt-2 border-t border-stone-800 text-stone-400">
+              <strong>Fitur Spesial Peta:</strong> Peta 3 memiliki <strong>lantai conveyor berjalan</strong> yang mendorong pemain, Peta 4 memiliki <strong>tumpahan oli licin</strong>, dan mencapai <strong>Combo x3+</strong> mengaktifkan mode <strong>⚡ OVERCLOCK (+25% kecepatan mesin)</strong>!
+            </div>
+          </div>
+          <div class="bg-rose-500/10 border border-rose-500/35 rounded-xl p-3 text-rose-200">
+            <strong>Tips Chaos Bengkel:</strong> Jangan biarkan Rangka terlalu lama di Mesin Las! Jika mulai berasap dan terbakar, ambil <strong>APAR merah</strong> lalu tahan E menghadap api untuk memadamkannya.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // =========================================================================
+    // AUDIO SYNTHESIZER (Web Audio API)
+    // =========================================================================
+    const SFX = {
+      ctx: null,
+      muted: false,
+      init() {
+        if (!this.ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) this.ctx = new AC();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      },
+      tone(freq, dur, type = 'sine', vol = 0.12, slide = null) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        if (slide) osc.frequency.exponentialRampToValueAtTime(slide, now + dur);
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + dur);
+      },
+      pick() { this.tone(420, 0.08, 'triangle', 0.12, 650); },
+      drop() { this.tone(280, 0.07, 'triangle', 0.1, 175); },
+      code() { this.tone(680 + Math.random() * 240, 0.05, 'square', 0.045); },
+      done() {
+        this.tone(523, 0.1, 'triangle', 0.12);
+        setTimeout(() => this.tone(659, 0.12, 'triangle', 0.12), 80);
+      },
+      deliver() {
+        [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => this.tone(f, 0.14, 'triangle', 0.14), i * 65));
+      },
+      overclock() {
+        [587, 740, 880, 1175].forEach((f, i) => setTimeout(() => this.tone(f, 0.16, 'sawtooth', 0.08), i * 55));
+      },
+      wrong() { this.tone(180, 0.18, 'sawtooth', 0.12, 110); },
+      dash() { this.tone(240, 0.12, 'sine', 0.09, 580); },
+      throwItem() { this.tone(360, 0.09, 'sine', 0.09, 700); },
+      fire() { this.tone(140, 0.15, 'sawtooth', 0.1, 90); },
+      spray() { this.tone(900, 0.06, 'sawtooth', 0.04, 400); },
+      slip() { this.tone(520, 0.14, 'sine', 0.07, 220); },
+      end() {
+        [440, 554, 659, 880].forEach((f, i) => setTimeout(() => this.tone(f, 0.22, 'triangle', 0.14), i * 110));
+      }
+    };
+
+    // =========================================================================
+    // CONSTANTS, RECIPES, STATION INFO & 4 DISTINCT MAPS
+    // =========================================================================
+    const COLS = 12;
+    const ROWS = 8;
+    const ROUND_SECONDS = 150;
+
+    const RECIPES = [
+      { id: 'bot_mini',  name: 'Bot Mini',    parts: ['welded_frame', 'charged_battery'], points: 100, color: '#38bdf8', hex: 0x38bdf8, time: 42 },
+      { id: 'bot_smart', name: 'Bot Pintar',  parts: ['welded_frame', 'coded_chip'],      points: 120, color: '#c084fc', hex: 0xc084fc, time: 46 },
+      { id: 'drone',     name: 'Drone Kilat', parts: ['charged_battery', 'coded_chip'],   points: 110, color: '#34d399', hex: 0x34d399, time: 44 },
+      { id: 'bot_turbo', name: 'Bot Turbo',   parts: ['welded_frame', 'charged_battery', 'coded_chip'], points: 180, color: '#fb923c', hex: 0xfb923c, time: 56 }
+    ];
+
+    const STATION_INFO = {
+      F: { tag: '📦 RANGKA',  title: 'Peti Rangka Baja',   desc: 'Tekan E untuk ambil Rangka Mentah, lalu bawa ke Mesin LAS.' },
+      B: { tag: '🔋 BATERAI', title: 'Peti Aki / Baterai', desc: 'Tekan E untuk ambil Baterai Kosong, lalu bawa ke Dock CAS.' },
+      C: { tag: '💾 CHIP',    title: 'Peti Chip Polos',    desc: 'Tekan E untuk ambil Chip Polos, lalu bawa ke Terminal CODE.' },
+      W: { tag: '🔥 LAS',     title: 'Mesin Las Bengkel',  desc: 'Taruh Rangka Mentah (otomatis 3 dtk). Segera ambil agar tidak terbakar!' },
+      E: { tag: '⚡ CAS',     title: 'Dock Charger',       desc: 'Taruh Baterai Kosong di sini untuk diisi penuh otomatis.' },
+      P: { tag: '💻 CODE',    title: 'Meja Coding Diagnostik', desc: 'Taruh Chip Polos, lalu TAHAN tombol E sambil menghadap monitor.' },
+      A: { tag: '🔧 RAKIT',   title: 'Meja Perakitan',     desc: 'Taruh 2–3 komponen yang sudah jadi di sini untuk merakit Robot.' },
+      D: { tag: '🚚 KIRIM',   title: 'Conveyor Pengiriman',desc: 'Bawa Robot yang sudah sesuai Order ke sini untuk dapat skor!' },
+      T: { tag: '🗑️ BUANG',   title: 'Tong Besi Tua',      desc: 'Buang komponen gosong atau barang yang tidak terpakai.' },
+      X: { tag: '🧯 APAR',    title: 'Tabung APAR Merah',  desc: 'Ambil APAR merah lalu tahan E menghadap api untuk memadamkannya.' },
+      '#': { tag: '',         title: 'Meja Kerja Kayu-Baja',desc: 'Bisa dipakai untuk menaruh sementara atau menggabungkan komponen jadi.' }
+    };
+
+    // Floor special tiles: '.' normal floor, '>' right-moving floor belt, '<' left-moving floor belt, 'O' slippery oil puddle
+    const MAPS = [
+      {
+        name: 'Garasi Pemula',
+        themeBg: 0x1a1410,
+        lampColor: 0xffb454,
+        orderInterval: 14.0,
+        burnRate: 0.9,
+        p1: { x: 3.5, y: 4.5 },
+        p2: { x: 8.5, y: 4.5 },
+        grid: [
+          '##F#W##E#B##',
+          '#..........#',
+          'C....AA....D',
+          '#..........#',
+          'P..........D',
+          '#..........#',
+          'X..........T',
+          '############'
+        ]
+      },
+      {
+        name: 'Meja Oper',
+        themeBg: 0x191612,
+        lampColor: 0xffc66b,
+        orderInterval: 13.5,
+        burnRate: 1.0,
+        p1: { x: 5.5, y: 2.0 },
+        p2: { x: 5.5, y: 5.5 },
+        grid: [
+          '##F##W##C#P#',
+          '#..........#',
+          '#..........#',
+          '###A####A###',
+          '#..........#',
+          'E..........D',
+          'B....X.....T',
+          '############'
+        ]
+      },
+      {
+        name: 'Jalur Belt',
+        themeBg: 0x13191e,
+        lampColor: 0x7dd3fc,
+        orderInterval: 12.2,
+        burnRate: 1.1,
+        p1: { x: 3.5, y: 2.0 },
+        p2: { x: 8.5, y: 5.5 },
+        grid: [
+          '##F#W##E#B##',
+          '#..........#',
+          'C.>>>>>>>>.D',
+          '#...#AA#...#',
+          'P.<<<<<<<<.D',
+          '#..........#',
+          'X..........T',
+          '############'
+        ]
+      },
+      {
+        name: 'Rush Hour',
+        themeBg: 0x1f120e,
+        lampColor: 0xfb923c,
+        orderInterval: 10.5,
+        burnRate: 1.35,
+        p1: { x: 2.5, y: 3.5 },
+        p2: { x: 9.5, y: 3.5 },
+        grid: [
+          '##F#W##W#B##',
+          '#...O..O...#',
+          'C..#A##A#..D',
+          '#..........#',
+          'P..#E##E#..D',
+          '#...O..O...#',
+          'X....P.....T',
+          '############'
+        ]
+      }
+    ];
+
+    function loadStars() {
+      try {
+        const raw = localStorage.getItem('overclocked_stars_v2');
+        return raw ? JSON.parse(raw) : [0, 0, 0, 0];
+      } catch (e) { return [0, 0, 0, 0]; }
+    }
+    function saveStars(arr) {
+      try { localStorage.setItem('overclocked_stars_v2', JSON.stringify(arr)); } catch (e) {}
+    }
+
+    // =========================================================================
+    // GAME STATE
+    // =========================================================================
+    const state = {
+      screen: 'menu',
+      mode: 'ai',
+      mapIndex: 0,
+      dynamicCam: true,
+      showGuide: true,
+      timeLeft: ROUND_SECONDS,
+      score: 0,
+      combo: 1,
+      maxCombo: 1,
+      delivered: 0,
+      missed: 0,
+      orderTimer: 2,
+      nextOrderId: 1,
+      orders: [],
+      tiles: [],
+      players: [],
+      flyingItems: [],
+      popups: [],
+      shake: 0,
+      beaconTarget: null,
+      starsRecord: loadStars()
+    };
+
+    const keys = {};
+    const touchInput = { active: false, dx: 0, dy: 0, up: false, down: false, left: false, right: false, action: false, throwKey: false, dash: false };
+    const remoteInput = { up: false, down: false, left: false, right: false, action: false, throwKey: false, dash: false };
+    const prevAction = [false, false];
+    const prevThrow = [false, false];
+    const prevDash = [false, false];
+    const net = { role: null, roomCode: '', connected: false, bc: null, peer: null, conn: null, lastSyncSent: 0 };
+
+    // =========================================================================
+    // DOM ELEMENTS
+    // =========================================================================
+    const canvas = document.getElementById('gameCanvas');
+    const fxCanvas = document.getElementById('fxOverlayCanvas');
+    const fxCtx = fxCanvas.getContext('2d');
+    const canvasShell = document.getElementById('canvasShell');
+    const hudBar = document.getElementById('hudBar');
+    const hudScore = document.getElementById('hudScore');
+    const hudComboWrap = document.getElementById('hudComboWrap');
+    const hudCombo = document.getElementById('hudCombo');
+    const hudOverclockBadge = document.getElementById('hudOverclockBadge');
+    const hudTimer = document.getElementById('hudTimer');
+    const hudTimerBox = document.getElementById('hudTimerBox');
+    const ordersStrip = document.getElementById('ordersStrip');
+    const coachBanner = document.getElementById('coachBanner');
+    const coachIcon = document.getElementById('coachIcon');
+    const coachText = document.getElementById('coachText');
+    const hoverTooltip = document.getElementById('hoverTooltip');
+    const hoverTitle = document.getElementById('hoverTitle');
+    const hoverDesc = document.getElementById('hoverDesc');
+    const menuOverlay = document.getElementById('menuOverlay');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const onlinePanel = document.getElementById('onlinePanel');
+    const onlineSetupRow = document.getElementById('onlineSetupRow');
+    const onlineStatusBox = document.getElementById('onlineStatusBox');
+    const onlineStatusText = document.getElementById('onlineStatusText');
+    const onlineDot = document.getElementById('onlineDot');
+    const btnCopyRoom = document.getElementById('btnCopyRoom');
+    const netBadge = document.getElementById('netBadge');
+    const netBadgeText = document.getElementById('netBadgeText');
+    const modeHintText = document.getElementById('modeHintText');
+    const btnStartGame = document.getElementById('btnStartGame');
+    const btnCamToggle = document.getElementById('btnCamToggle');
+    const btnGuideToggle = document.getElementById('btnGuideToggle');
+    const toastEl = document.getElementById('toast');
+    const touchControls = document.getElementById('touchControls');
+    const legendStrip = document.getElementById('legendStrip');
+    const joystickZone = document.getElementById('joystickZone');
+    const joystickBase = document.getElementById('joystickBase');
+    const joystickKnob = document.getElementById('joystickKnob');
+
+    let toastTimer = null;
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.style.opacity = '1';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toastEl.style.opacity = '0'; }, 2400);
+    }
+
+    // =========================================================================
+    // ITEM & RECIPE HELPERS
+    // =========================================================================
+    function makeItem(kind, parts = null) {
+      if (kind === 'assembly') return { kind: 'assembly', parts: [...parts].sort() };
+      return { kind };
+    }
+    function isProcessedPart(kind) {
+      return kind === 'welded_frame' || kind === 'charged_battery' || kind === 'coded_chip';
+    }
+    function getMatchingRecipe(parts) {
+      const sorted = [...parts].sort().join('+');
+      return RECIPES.find(r => [...r.parts].sort().join('+') === sorted) || null;
+    }
+    function itemKey(item) {
+      if (!item) return '';
+      return item.kind === 'assembly' ? 'asm:' + item.parts.join('+') : item.kind;
+    }
+    function canCombine(itemA, itemB) {
+      if (!itemA || !itemB) return null;
+      const partsA = itemA.kind === 'assembly' ? itemA.parts : (isProcessedPart(itemA.kind) ? [itemA.kind] : null);
+      const partsB = itemB.kind === 'assembly' ? itemB.parts : (isProcessedPart(itemB.kind) ? [itemB.kind] : null);
+      if (!partsA || !partsB) return null;
+      for (const p of partsB) { if (partsA.includes(p)) return null; }
+      const merged = [...partsA, ...partsB].sort();
+      if (merged.length > 3) return null;
+      return makeItem('assembly', merged);
+    }
+    function isWalkableTileType(ch) {
+      return ch === '.' || ch === '>' || ch === '<' || ch === 'O';
+    }
+
+    // =========================================================================
+    // THREE.JS AUTHENTIC 3D WORKSHOP / BENGKEL DIORAMA ENGINE
+    // =========================================================================
+    const G3 = {
+      ok: false,
+      scene: null,
+      camera: null,
+      renderer: null,
+      worldGroup: null,
+      tileVisuals: [],
+      stationMeshes: [],
+      playerMeshes: [],
+      flyingMeshes: new Map(),
+      particles: [],
+      beltTex: null,
+      floorBeltRightTex: null,
+      floorBeltLeftTex: null,
+      codeTex: null,
+      floorTex: null,
+      hazardTex: null,
+      brickTex: null,
+      woodTex: null,
+      rollerDoorTex: null,
+      pegboardTex: null,
+      highlightRings: [],
+      beaconArrow: null,
+      fanBlades: [],
+      craneTrolley: null,
+      pendantLights: [],
+      camTarget: null,
+      camPos: null,
+      orbitYaw: 0,
+      orbitPitch: 0.7,
+      orbitDist: 14.0,
+      dragging: false,
+      lastPointerX: 0,
+      lastPointerY: 0,
+      raycaster: null,
+      pointerNDC: null
+    };
+
+    function worldX(gx) { return gx - COLS / 2; }
+    function worldZ(gy) { return gy - ROWS / 2; }
+
+    function createWorkshopTextures() {
+      // 1. Concrete Garage Floor
+      const fc = document.createElement('canvas');
+      fc.width = 256; fc.height = 256;
+      const fctx = fc.getContext('2d');
+      fctx.fillStyle = '#47413b'; fctx.fillRect(0, 0, 256, 256);
+      fctx.fillStyle = '#3f3933'; fctx.fillRect(0, 0, 128, 128); fctx.fillRect(128, 128, 128, 128);
+      for (let i = 0; i < 180; i++) {
+        fctx.fillStyle = i % 2 === 0 ? 'rgba(255,245,230,0.04)' : 'rgba(15,10,5,0.08)';
+        fctx.fillRect((i * 53) % 256, (i * 97) % 256, 4, 4);
+      }
+      fctx.strokeStyle = 'rgba(25, 20, 16, 0.35)'; fctx.lineWidth = 4;
+      fctx.strokeRect(2, 2, 124, 124); fctx.strokeRect(130, 130, 124, 124);
+      fctx.strokeRect(130, 2, 124, 124); fctx.strokeRect(2, 130, 124, 124);
+      G3.floorTex = new THREE.CanvasTexture(fc);
+      G3.floorTex.wrapS = THREE.RepeatWrapping; G3.floorTex.wrapT = THREE.RepeatWrapping;
+      G3.floorTex.repeat.set(COLS / 2, ROWS / 2);
+
+      // 2. Butcher-Block Wood Top
+      const wc = document.createElement('canvas'); wc.width = 128; wc.height = 128;
+      const wctx = wc.getContext('2d');
+      const woodShades = ['#9a6537', '#8a582e', '#a8703f', '#7e4f28'];
+      for (let i = 0; i < 8; i++) {
+        wctx.fillStyle = woodShades[i % woodShades.length]; wctx.fillRect(0, i * 16, 128, 16);
+        wctx.fillStyle = 'rgba(0,0,0,0.14)'; wctx.fillRect(0, i * 16, 128, 2);
+      }
+      G3.woodTex = new THREE.CanvasTexture(wc);
+
+      // 3. Red-Brown Brick Wall
+      const bkc = document.createElement('canvas'); bkc.width = 256; bkc.height = 128;
+      const bkctx = bkc.getContext('2d');
+      bkctx.fillStyle = '#3b332d'; bkctx.fillRect(0, 0, 256, 128);
+      for (let row = 0; row < 4; row++) {
+        const offset = (row % 2) * 32;
+        for (let col = -1; col < 5; col++) {
+          bkctx.fillStyle = (row + col) % 2 === 0 ? '#6e3b2e' : '#5e3126';
+          bkctx.fillRect(col * 64 + offset + 3, row * 32 + 3, 58, 26);
+        }
+      }
+      G3.brickTex = new THREE.CanvasTexture(bkc);
+      G3.brickTex.wrapS = THREE.RepeatWrapping; G3.brickTex.wrapT = THREE.RepeatWrapping;
+      G3.brickTex.repeat.set(5, 2);
+
+      // 4. Roller Door
+      const rdc = document.createElement('canvas'); rdc.width = 128; rdc.height = 128;
+      const rdctx = rdc.getContext('2d');
+      for (let y = 0; y < 128; y += 12) {
+        rdctx.fillStyle = '#64748b'; rdctx.fillRect(0, y, 128, 8);
+        rdctx.fillStyle = '#334155'; rdctx.fillRect(0, y + 8, 128, 4);
+      }
+      rdctx.fillStyle = '#f59e0b'; rdctx.fillRect(0, 114, 128, 14);
+      G3.rollerDoorTex = new THREE.CanvasTexture(rdc);
+
+      // 5. Tool Pegboard
+      const pbc = document.createElement('canvas'); pbc.width = 256; pbc.height = 128;
+      const pbctx = pbc.getContext('2d');
+      pbctx.fillStyle = '#292524'; pbctx.fillRect(0, 0, 256, 128);
+      pbctx.fillStyle = '#44403c';
+      for (let x = 12; x < 250; x += 16) for (let y = 12; y < 120; y += 16) { pbctx.beginPath(); pbctx.arc(x, y, 2, 0, Math.PI * 2); pbctx.fill(); }
+      pbctx.fillStyle = '#e7e5e4';
+      [35, 70, 105].forEach((wx, idx) => {
+        pbctx.fillRect(wx, 24 + idx * 4, 10, 62 - idx * 6);
+        pbctx.beginPath(); pbctx.arc(wx + 5, 24 + idx * 4, 10, 0, Math.PI * 2); pbctx.fill();
+        pbctx.fillStyle = '#292524'; pbctx.fillRect(wx + 2, 14 + idx * 4, 6, 10);
+        pbctx.fillStyle = '#e7e5e4';
+      });
+      pbctx.fillStyle = '#ef4444'; pbctx.fillRect(150, 26, 14, 30); pbctx.fillStyle = '#d6d3d1'; pbctx.fillRect(155, 56, 4, 42);
+      pbctx.fillStyle = '#f59e0b'; pbctx.fillRect(184, 30, 14, 28); pbctx.fillStyle = '#d6d3d1'; pbctx.fillRect(189, 58, 4, 38);
+      pbctx.fillStyle = '#38bdf8'; pbctx.fillRect(216, 28, 16, 26); pbctx.fillStyle = '#d6d3d1'; pbctx.fillRect(222, 54, 4, 40);
+      G3.pegboardTex = new THREE.CanvasTexture(pbc);
+
+      // 6. Delivery Conveyor Belt + Floor Moving Belt Textures
+      function makeBeltTex(bg, fg, dirRight) {
+        const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+        const xctx = c.getContext('2d');
+        xctx.fillStyle = bg; xctx.fillRect(0, 0, 128, 128);
+        xctx.strokeStyle = fg; xctx.lineWidth = 14;
+        for (let x = -64; x < 192; x += 64) {
+          xctx.beginPath();
+          if (dirRight) { xctx.moveTo(x, 18); xctx.lineTo(x + 36, 64); xctx.lineTo(x, 110); }
+          else { xctx.moveTo(x + 36, 18); xctx.lineTo(x, 64); xctx.lineTo(x + 36, 110); }
+          xctx.stroke();
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+      }
+      G3.beltTex = makeBeltTex('#292524', '#f59e0b', true);
+      G3.floorBeltRightTex = makeBeltTex('#1e293b', '#38bdf8', true);
+      G3.floorBeltLeftTex = makeBeltTex('#1e293b', '#fb923c', false);
+
+      // 7. Diagnostic Coding Screen
+      const cc = document.createElement('canvas'); cc.width = 128; cc.height = 96;
+      const cctx = cc.getContext('2d');
+      cctx.fillStyle = '#042f2e'; cctx.fillRect(0, 0, 128, 96);
+      cctx.fillStyle = '#22d3ee';
+      for (let i = 0; i < 7; i++) cctx.fillRect(12, 10 + i * 11, 30 + ((i * 37) % 72), 6);
+      cctx.fillStyle = '#34d399'; cctx.fillRect(12, 82, 48, 6);
+      G3.codeTex = new THREE.CanvasTexture(cc);
+
+      // 8. Hazard Stripes
+      const hc = document.createElement('canvas'); hc.width = 128; hc.height = 128;
+      const hctx = hc.getContext('2d');
+      hctx.fillStyle = '#f59e0b'; hctx.fillRect(0, 0, 128, 128);
+      hctx.fillStyle = '#1c1917';
+      for (let i = -128; i < 256; i += 32) {
+        hctx.beginPath(); hctx.moveTo(i, 0); hctx.lineTo(i + 16, 0); hctx.lineTo(i - 112, 128); hctx.lineTo(i - 128, 128); hctx.closePath(); hctx.fill();
+      }
+      G3.hazardTex = new THREE.CanvasTexture(hc);
+      G3.hazardTex.wrapS = THREE.RepeatWrapping; G3.hazardTex.wrapT = THREE.RepeatWrapping;
+    }
+
+    function initThree() {
+      if (typeof THREE === 'undefined') return;
+      try {
+        G3.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+        G3.renderer.shadowMap.enabled = true;
+        G3.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        G3.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        G3.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        G3.renderer.toneMappingExposure = 1.24;
+
+        G3.scene = new THREE.Scene();
+        G3.scene.background = new THREE.Color(0x1a1410);
+        G3.scene.fog = new THREE.FogExp2(0x1a1410, 0.017);
+
+        G3.camera = new THREE.PerspectiveCamera(42, 16 / 10, 0.5, 70);
+        G3.camPos = new THREE.Vector3(0, 9.0, 10.5);
+        G3.camTarget = new THREE.Vector3(0, 0.3, 0.15);
+        G3.camera.position.copy(G3.camPos);
+        G3.camera.lookAt(G3.camTarget);
+        G3.raycaster = new THREE.Raycaster();
+        G3.pointerNDC = new THREE.Vector2(-99, -99);
+
+        createWorkshopTextures();
+
+        const hemi = new THREE.HemisphereLight(0xffe9cc, 0x2c221b, 0.85);
+        G3.scene.add(hemi);
+
+        const keyLight = new THREE.DirectionalLight(0xfff1d6, 1.32);
+        keyLight.position.set(7.5, 14.5, 9.5);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.width = 1024; keyLight.shadow.mapSize.height = 1024;
+        keyLight.shadow.camera.near = 2; keyLight.shadow.camera.far = 36;
+        const d = 10;
+        keyLight.shadow.camera.left = -d; keyLight.shadow.camera.right = d;
+        keyLight.shadow.camera.top = d; keyLight.shadow.camera.bottom = -d;
+        keyLight.shadow.bias = -0.001;
+        G3.scene.add(keyLight);
+
+        // Hanging Workshop Pendant Lights
+        [-3.2, 3.2].forEach(lx => {
+          const pLight = new THREE.PointLight(0xffb454, 1.0, 14);
+          pLight.position.set(lx, 4.3, -0.5);
+          G3.scene.add(pLight);
+          G3.pendantLights.push(pLight);
+
+          const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 6), new THREE.MeshStandardMaterial({ color: 0x1c1917 }));
+          cord.position.set(lx, 5.1, -0.5); G3.scene.add(cord);
+          const shade = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.3, 14, 1, true), new THREE.MeshStandardMaterial({ color: 0x292524, metalness: 0.7, side: THREE.DoubleSide }));
+          shade.position.set(lx, 4.6, -0.5); G3.scene.add(shade);
+          const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), new THREE.MeshBasicMaterial({ color: 0xfef3c7 }));
+          bulb.position.set(lx, 4.46, -0.5); G3.scene.add(bulb);
+        });
+
+        // Concrete Apron + Hazard Borders
+        const deck = new THREE.Mesh(
+          new THREE.BoxGeometry(COLS + 3.0, 0.55, ROWS + 3.0),
+          new THREE.MeshStandardMaterial({ color: 0x29231f, roughness: 0.88, metalness: 0.15 })
+        );
+        deck.position.set(0, -0.32, 0); deck.receiveShadow = true; G3.scene.add(deck);
+
+        G3.hazardTex.repeat.set(9, 1);
+        const borderMat = new THREE.MeshStandardMaterial({ map: G3.hazardTex, roughness: 0.55 });
+        const rimGeoH = new THREE.BoxGeometry(COLS + 0.5, 0.12, 0.24);
+        const rimN = new THREE.Mesh(rimGeoH, borderMat); rimN.position.set(0, -0.02, -ROWS / 2 - 0.15); G3.scene.add(rimN);
+        const rimS = new THREE.Mesh(rimGeoH, borderMat); rimS.position.set(0, -0.02, ROWS / 2 + 0.15); G3.scene.add(rimS);
+
+        // Brick Back Wall + Roller Door + Tool Pegboard + Exhaust Fan + Moving Crane Trolley!
+        const backZ = -ROWS / 2 - 0.72;
+        const backWall = new THREE.Mesh(new THREE.BoxGeometry(COLS + 2.4, 4.2, 0.3), new THREE.MeshStandardMaterial({ map: G3.brickTex, roughness: 0.9 }));
+        backWall.position.set(0, 1.9, backZ); backWall.receiveShadow = true; G3.scene.add(backWall);
+
+        const rollerDoor = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.9, 0.12), new THREE.MeshStandardMaterial({ map: G3.rollerDoorTex, roughness: 0.45, metalness: 0.55 }));
+        rollerDoor.position.set(-3.1, 1.45, backZ + 0.18); G3.scene.add(rollerDoor);
+
+        const pegboard = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.75, 0.1), new THREE.MeshStandardMaterial({ map: G3.pegboardTex, roughness: 0.6 }));
+        pegboard.position.set(2.8, 2.1, backZ + 0.18); G3.scene.add(pegboard);
+
+        const steelMat = new THREE.MeshStandardMaterial({ color: 0x44403c, roughness: 0.45, metalness: 0.7 });
+        const housing = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.22, 16), steelMat);
+        housing.rotation.x = Math.PI / 2; housing.position.set(-0.2, 2.8, backZ + 0.16); G3.scene.add(housing);
+        const fanHub = new THREE.Group(); fanHub.position.set(-0.2, 2.8, backZ + 0.28);
+        const bladeMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.5, roughness: 0.3 });
+        for (let b = 0; b < 4; b++) {
+          const blade = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.15, 0.04), bladeMat);
+          blade.rotation.z = (b * Math.PI) / 4; fanHub.add(blade);
+        }
+        G3.scene.add(fanHub); G3.fanBlades.push(fanHub);
+
+        const iBeam = new THREE.Mesh(new THREE.BoxGeometry(COLS + 2.2, 0.28, 0.28), new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.4, metalness: 0.6 }));
+        iBeam.position.set(0, 4.15, backZ + 0.22); G3.scene.add(iBeam);
+
+        // Gliding Overhead Crane Trolley + Hook
+        const trolley = new THREE.Group();
+        trolley.position.set(0, 4.0, backZ + 0.22);
+        const tBox = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.35, 0.4), new THREE.MeshStandardMaterial({ color: 0x1c1917, metalness: 0.7 }));
+        trolley.add(tBox);
+        const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.65, 6), new THREE.MeshStandardMaterial({ color: 0xa8a29e }));
+        cable.position.y = -0.45; trolley.add(cable);
+        const hook = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.035, 6, 12, Math.PI * 1.4), new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.6 }));
+        hook.position.y = -0.82; trolley.add(hook);
+        G3.scene.add(trolley);
+        G3.craneTrolley = trolley;
+
+        // Workshop Perimeter Props (Oil Drums, Red Rolling Toolbox, Stacked Tires)
+        const drumMatBlue = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.4, metalness: 0.55 });
+        const drumMatRed = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.4, metalness: 0.55 });
+        const d1 = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.95, 14), drumMatBlue); d1.position.set(-COLS / 2 - 0.95, 0.46, -2.2); d1.castShadow = true; G3.scene.add(d1);
+        const d2 = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.95, 14), drumMatRed); d2.position.set(-COLS / 2 - 0.95, 0.46, -1.3); d2.castShadow = true; G3.scene.add(d2);
+
+        const chest = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.05, 1.25), drumMatRed); chest.position.set(-COLS / 2 - 0.95, 0.52, 1.6); chest.castShadow = true; G3.scene.add(chest);
+        const handleMat = new THREE.MeshStandardMaterial({ color: 0xe7e5e4, metalness: 0.85, roughness: 0.2 });
+        [0.3, 0.55, 0.8].forEach(hy => { const h = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.82), handleMat); h.position.set(-COLS / 2 - 0.53, hy, 1.6); G3.scene.add(h); });
+
+        const tireMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.92 });
+        [0.2, 0.52, 0.84].forEach((ty, idx) => {
+          const tire = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.14, 10, 18), tireMat);
+          tire.rotation.x = Math.PI / 2; tire.position.set(COLS / 2 + 0.92 + (idx === 2 ? 0.06 : 0), ty, 2.2); tire.castShadow = true; G3.scene.add(tire);
+        });
+
+        // Main Floor
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(COLS, ROWS), new THREE.MeshStandardMaterial({ map: G3.floorTex, roughness: 0.72, metalness: 0.12 }));
+        floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; G3.scene.add(floor);
+
+        G3.worldGroup = new THREE.Group();
+        G3.scene.add(G3.worldGroup);
+
+        [0x38bdf8, 0xfb923c].forEach(col => {
+          const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.02, 0.16, 1.02));
+          const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: col }));
+          line.visible = false; G3.scene.add(line); G3.highlightRings.push(line);
+        });
+
+        const beacon = new THREE.Group();
+        const arrowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xf59e0b, emissiveIntensity: 0.9, roughness: 0.2 });
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 6), arrowMat); cone.rotation.x = Math.PI; cone.position.y = 0.25; beacon.add(cone);
+        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.36, 8), arrowMat); shaft.position.y = 0.65; beacon.add(shaft);
+        const halo = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.04, 8, 20), new THREE.MeshBasicMaterial({ color: 0xfef08a })); halo.rotation.x = Math.PI / 2; halo.position.y = -0.35; beacon.add(halo);
+        beacon.visible = false; G3.scene.add(beacon); G3.beaconArrow = beacon;
+
+        G3.ok = true;
+      } catch (e) { G3.ok = false; }
+    }
+
+    function createItemMesh(item) {
+      const g = new THREE.Group();
+      const k = item.kind;
+      if (k === 'raw_frame' || k === 'welded_frame') {
+        const welded = k === 'welded_frame';
+        const mat = new THREE.MeshStandardMaterial({ color: welded ? 0xf59e0b : 0xa8a29e, emissive: welded ? 0xb45309 : 0x000000, emissiveIntensity: welded ? 0.6 : 0, roughness: welded ? 0.25 : 0.45, metalness: 0.8 });
+        const barH = new THREE.BoxGeometry(0.48, 0.13, 0.1), barV = new THREE.BoxGeometry(0.1, 0.13, 0.44);
+        const b1 = new THREE.Mesh(barH, mat); b1.position.set(0, 0.12, 0.17); b1.castShadow = true; g.add(b1);
+        const b2 = new THREE.Mesh(barH, mat); b2.position.set(0, 0.12, -0.17); b2.castShadow = true; g.add(b2);
+        const b3 = new THREE.Mesh(barV, mat); b3.position.set(0.19, 0.12, 0); b3.castShadow = true; g.add(b3);
+        const b4 = new THREE.Mesh(barV, mat); b4.position.set(-0.19, 0.12, 0); b4.castShadow = true; g.add(b4);
+        if (welded) {
+          const core = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.15, 0.2), new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xf59e0b, emissiveIntensity: 0.85 }));
+          core.position.y = 0.14; g.add(core);
+        }
+      } else if (k === 'burnt') {
+        const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.24, 0), new THREE.MeshStandardMaterial({ color: 0x18181b, emissive: 0x7f1d1d, emissiveIntensity: 0.45, roughness: 0.95 }));
+        m.position.y = 0.22; m.castShadow = true; g.add(m);
+      } else if (k === 'raw_battery' || k === 'charged_battery') {
+        const full = k === 'charged_battery';
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.38, 14), new THREE.MeshStandardMaterial({ color: full ? 0x10b981 : 0x57534e, emissive: full ? 0x059669 : 0x000000, emissiveIntensity: full ? 0.75 : 0, roughness: 0.28, metalness: 0.5 }));
+        body.position.y = 0.21; body.castShadow = true; g.add(body);
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.08, 12), new THREE.MeshStandardMaterial({ color: 0xe7e5e4, metalness: 0.85 }));
+        cap.position.y = 0.42; g.add(cap);
+        if (full) {
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.028, 8, 20), new THREE.MeshBasicMaterial({ color: 0x6ee7b7 }));
+          ring.rotation.x = Math.PI / 2; ring.position.y = 0.22; g.add(ring);
+        }
+      } else if (k === 'raw_chip' || k === 'coded_chip') {
+        const coded = k === 'coded_chip';
+        const wafer = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.08, 0.38), new THREE.MeshStandardMaterial({ color: coded ? 0x0891b2 : 0x44403c, emissive: coded ? 0x06b6d4 : 0x000000, emissiveIntensity: coded ? 0.65 : 0, metalness: 0.6 }));
+        wafer.position.y = 0.08; wafer.castShadow = true; g.add(wafer);
+        const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshStandardMaterial({ color: coded ? 0xa5f3fc : 0xa8a29e, emissive: coded ? 0x22d3ee : 0x000000, emissiveIntensity: coded ? 0.95 : 0 }));
+        core.position.y = 0.22; core.userData.spin = true; g.add(core);
+      } else if (k === 'extinguisher') {
+        const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.15, 0.48, 14), new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.3, metalness: 0.35 }));
+        cyl.position.y = 0.25; cyl.castShadow = true; g.add(cyl);
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.1, 10), new THREE.MeshStandardMaterial({ color: 0xe7e5e4, metalness: 0.8 }));
+        neck.position.y = 0.52; g.add(neck);
+        const nozzle = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.22, 10), new THREE.MeshStandardMaterial({ color: 0x1c1917 }));
+        nozzle.rotation.z = -Math.PI / 2; nozzle.position.set(0.15, 0.5, 0); g.add(nozzle);
+      } else if (k === 'assembly') {
+        const rec = getMatchingRecipe(item.parts);
+        const hex = rec ? rec.hex : 0xd6d3d1;
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.36, 0.36), new THREE.MeshStandardMaterial({ color: hex, roughness: 0.22, metalness: 0.45, emissive: hex, emissiveIntensity: 0.22 }));
+        body.position.y = 0.27; body.castShadow = true; g.add(body);
+        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.14, 0.06), new THREE.MeshStandardMaterial({ color: 0x1c1917 })); visor.position.set(0, 0.32, 0.17); g.add(visor);
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+        const e1 = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), eyeMat); e1.position.set(-0.09, 0.32, 0.205); g.add(e1);
+        const e2 = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), eyeMat); e2.position.set(0.09, 0.32, 0.205); g.add(e2);
+        const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.18, 6), new THREE.MeshStandardMaterial({ color: 0xffffff })); ant.position.y = 0.52; g.add(ant);
+        const tip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfef08a })); tip.position.y = 0.62; g.add(tip);
+        if (rec && rec.id === 'drone') {
+          const rotor = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.025, 0.08), new THREE.MeshBasicMaterial({ color: 0xa7f3d0 }));
+          rotor.position.y = 0.58; rotor.userData.spinFast = true; g.add(rotor);
+        } else if (rec && rec.id === 'bot_turbo') {
+          const wingMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xf97316, emissiveIntensity: 0.55 });
+          const wL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.26, 0.08), wingMat); wL.position.set(-0.28, 0.28, -0.04); g.add(wL);
+          const wR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.26, 0.08), wingMat); wR.position.set(0.28, 0.28, -0.04); g.add(wR);
+        }
+        g.userData.hoverSpin = true;
+      }
+      return g;
+    }
+
+    function createPlayerMesh(p) {
+      const root = new THREE.Group();
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.42, 24), new THREE.MeshBasicMaterial({ color: p.hex, side: THREE.DoubleSide, transparent: true, opacity: 0.78 }));
+      ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; root.add(ring);
+
+      const rig = new THREE.Group(); root.add(rig);
+      const bodyMat = new THREE.MeshStandardMaterial({ color: p.hex, roughness: 0.3, metalness: 0.3 });
+      const darkMat = new THREE.MeshStandardMaterial({ color: 0x292524, roughness: 0.6, metalness: 0.35 });
+      const metalMat = new THREE.MeshStandardMaterial({ color: 0xe7e5e4, roughness: 0.25, metalness: 0.7 });
+
+      const legGeo = new THREE.CylinderGeometry(0.095, 0.095, 0.3, 10);
+      const legL = new THREE.Mesh(legGeo, darkMat); legL.position.set(-0.14, 0.15, 0); legL.castShadow = true; rig.add(legL);
+      const legR = new THREE.Mesh(legGeo, darkMat); legR.position.set(0.14, 0.15, 0); legR.castShadow = true; rig.add(legR);
+
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.28, 0.46, 14), bodyMat); torso.position.y = 0.48; torso.castShadow = true; rig.add(torso);
+      const chest = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.19, 0.09), metalMat); chest.position.set(0, 0.5, 0.23); rig.add(chest);
+
+      const pack = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.34, 0.18), darkMat); pack.position.set(0, 0.52, -0.25); pack.castShadow = true; rig.add(pack);
+      const thrMat = new THREE.MeshBasicMaterial({ color: p.id === 0 ? 0x7dd3fc : 0xfdba74 });
+      const thrL = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 0.14, 8), thrMat); thrL.position.set(-0.085, 0.33, -0.27); rig.add(thrL);
+      const thrR = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 0.14, 8), thrMat); thrR.position.set(0.085, 0.33, -0.27); rig.add(thrR);
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 14), bodyMat); head.position.y = 0.9; head.castShadow = true; rig.add(head);
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.04, 16), new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 }));
+      brim.position.set(0, 1.02, 0.04); rig.add(brim);
+
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.16, 0.15), darkMat); visor.position.set(0, 0.89, 0.19); rig.add(visor);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.044, 8, 8), eyeMat); eyeL.position.set(-0.085, 0.9, 0.27); rig.add(eyeL);
+      const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.044, 8, 8), eyeMat); eyeR.position.set(0.085, 0.9, 0.27); rig.add(eyeR);
+
+      const armPivotL = new THREE.Group(); armPivotL.position.set(-0.31, 0.6, 0); rig.add(armPivotL);
+      const armPivotR = new THREE.Group(); armPivotR.position.set(0.31, 0.6, 0); rig.add(armPivotR);
+      const armGeo = new THREE.CylinderGeometry(0.075, 0.075, 0.34, 8);
+      const armL = new THREE.Mesh(armGeo, metalMat); armL.position.y = -0.15; armL.castShadow = true; armPivotL.add(armL);
+      const armR = new THREE.Mesh(armGeo, metalMat); armR.position.y = -0.15; armR.castShadow = true; armPivotR.add(armR);
+
+      const handSlot = new THREE.Group(); handSlot.position.set(0, 0.56, 0.5); rig.add(handSlot);
+      root.userData = { rig, legL, legR, armPivotL, armPivotR, handSlot, heldKey: '', heldMesh: null, thrL, thrR, bounce: 0 };
+      return root;
+    }
+
+    function buildLevel3D() {
+      if (!G3.ok) return;
+      while (G3.worldGroup.children.length > 0) G3.worldGroup.remove(G3.worldGroup.children[0]);
+      G3.tileVisuals = [];
+      G3.stationMeshes = [];
+      G3.playerMeshes = [];
+      G3.flyingMeshes.clear();
+      G3.particles.forEach(pt => G3.scene.remove(pt.mesh));
+      G3.particles = [];
+
+      const map = MAPS[state.mapIndex] || MAPS[0];
+      G3.scene.background.setHex(map.themeBg);
+      G3.scene.fog.color.setHex(map.themeBg);
+      G3.pendantLights.forEach(pl => pl.color.setHex(map.lampColor));
+
+      const cabinetMat = new THREE.MeshStandardMaterial({ color: 0x3b3531, roughness: 0.65, metalness: 0.4 });
+      const woodTopMat = new THREE.MeshStandardMaterial({ map: G3.woodTex, roughness: 0.55, metalness: 0.08 });
+      const drawerMat = new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: 0.4, metalness: 0.6 });
+      const oilMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.08, metalness: 0.9, emissive: 0x312e81, emissiveIntensity: 0.25 });
+
+      for (let r = 0; r < ROWS; r++) {
+        const visRow = [];
+        for (let c = 0; c < COLS; c++) {
+          const tile = state.tiles[r][c];
+          const vis = { group: null, itemSlot: null, itemKey: '', itemMesh: null, fireGroup: null, fireLight: null, welderArm: null, welderLight: null, chargerRing: null, crateSample: null, cratePop: 0, codeHolo: null, archMat: null, archFlash: 0 };
+
+          // Special walkable floor tiles: '>' '<' moving belts, 'O' oil slick
+          if (tile.type === '>' || tile.type === '<') {
+            const beltFloor = new THREE.Mesh(
+              new THREE.PlaneGeometry(0.98, 0.92),
+              new THREE.MeshStandardMaterial({ map: tile.type === '>' ? G3.floorBeltRightTex : G3.floorBeltLeftTex, roughness: 0.45 })
+            );
+            beltFloor.rotation.x = -Math.PI / 2;
+            beltFloor.position.set(worldX(c + 0.5), 0.015, worldZ(r + 0.5));
+            beltFloor.receiveShadow = true;
+            G3.worldGroup.add(beltFloor);
+          } else if (tile.type === 'O') {
+            const oil = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.44, 0.02, 18), oilMat);
+            oil.position.set(worldX(c + 0.5), 0.01, worldZ(r + 0.5));
+            oil.receiveShadow = true;
+            G3.worldGroup.add(oil);
+          }
+
+          if (!isWalkableTileType(tile.type)) {
+            const g = new THREE.Group();
+            g.position.set(worldX(c + 0.5), 0, worldZ(r + 0.5));
+
+            const base = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.76, 0.94), cabinetMat);
+            base.position.y = 0.38; base.castShadow = true; base.receiveShadow = true;
+            base.userData.tileCoord = { r, c, type: tile.type };
+            G3.stationMeshes.push(base); g.add(base);
+
+            if (tile.type === '#') {
+              const handle = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.05), drawerMat);
+              handle.position.set(0, 0.54, 0.48); g.add(handle);
+            }
+
+            const top = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.11, 0.98), tile.type === '#' ? woodTopMat : cabinetMat);
+            top.position.y = 0.8; top.castShadow = true; top.receiveShadow = true;
+            top.userData.tileCoord = { r, c, type: tile.type };
+            G3.stationMeshes.push(top); g.add(top);
+
+            if (tile.type === 'F' || tile.type === 'B' || tile.type === 'C') {
+              const col = tile.type === 'F' ? 0xf59e0b : tile.type === 'B' ? 0x10b981 : 0x06b6d4;
+              const trim = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.16, 0.96), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.35, roughness: 0.3 }));
+              trim.position.y = 0.82; g.add(trim);
+              const kind = tile.type === 'F' ? 'raw_frame' : tile.type === 'B' ? 'raw_battery' : 'raw_chip';
+              const sample = createItemMesh(makeItem(kind));
+              sample.position.y = 1.02; sample.scale.setScalar(0.86); g.add(sample);
+              vis.crateSample = sample;
+            } else if (tile.type === 'W') {
+              const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.42, 0.14, 16), new THREE.MeshStandardMaterial({ color: 0x7c2d12, emissive: 0xea580c, emissiveIntensity: 0.5, roughness: 0.35 }));
+              pad.position.y = 0.88; g.add(pad);
+              const post = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.72, 0.15), new THREE.MeshStandardMaterial({ color: 0xf97316, metalness: 0.65 }));
+              post.position.set(-0.34, 1.18, -0.34); post.castShadow = true; g.add(post);
+              const arm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.11, 0.13), new THREE.MeshStandardMaterial({ color: 0xfdba74, metalness: 0.75 }));
+              arm.position.set(-0.1, 1.48, -0.1); g.add(arm); vis.welderArm = arm;
+              const wl = new THREE.PointLight(0xf97316, 0, 4.2); wl.position.set(0, 1.32, 0); g.add(wl); vis.welderLight = wl;
+            } else if (tile.type === 'E') {
+              const dock = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.4, 0.12, 16), new THREE.MeshStandardMaterial({ color: 0x064e3b, emissive: 0x10b981, emissiveIntensity: 0.45 }));
+              dock.position.y = 0.88; g.add(dock);
+              [-0.34, 0.34].forEach(ox => {
+                const coil = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.45, 8), new THREE.MeshStandardMaterial({ color: 0x34d399, metalness: 0.7 }));
+                coil.position.set(ox, 1.08, -0.32); g.add(coil);
+              });
+              const ring = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.038, 8, 20), new THREE.MeshBasicMaterial({ color: 0x34d399 }));
+              ring.rotation.x = Math.PI / 2; ring.position.y = 0.96; g.add(ring); vis.chargerRing = ring;
+            } else if (tile.type === 'P') {
+              const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.5, 0.09), new THREE.MeshStandardMaterial({ color: 0x1c1917, metalness: 0.7 }));
+              monitor.position.set(0, 1.22, -0.26); monitor.rotation.x = 0.25; monitor.castShadow = true; g.add(monitor);
+              const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.68, 0.4), new THREE.MeshBasicMaterial({ map: G3.codeTex }));
+              screen.position.set(0, 1.22, -0.21); screen.rotation.x = 0.25; g.add(screen);
+              const holo = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.34), new THREE.MeshBasicMaterial({ map: G3.codeTex, transparent: true, opacity: 0.78, side: THREE.DoubleSide }));
+              holo.position.set(0, 1.68, 0.05); holo.visible = false; g.add(holo); vis.codeHolo = holo;
+            } else if (tile.type === 'A') {
+              const pad = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.07, 0.86), new THREE.MeshStandardMaterial({ color: 0x1e3a8a, emissive: 0x3b82f6, emissiveIntensity: 0.45 }));
+              pad.position.y = 0.87; g.add(pad);
+              [[-0.38, -0.38], [0.38, -0.38], [-0.38, 0.38], [0.38, 0.38]].forEach(([ox, oz]) => {
+                const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 8), new THREE.MeshBasicMaterial({ color: 0x93c5fd }));
+                pin.position.set(ox, 0.96, oz); g.add(pin);
+              });
+            } else if (tile.type === 'D') {
+              const belt = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.14, 0.88), new THREE.MeshStandardMaterial({ map: G3.beltTex, roughness: 0.45 }));
+              belt.position.y = 0.86; g.add(belt);
+              const archMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 0.4, metalness: 0.65 });
+              const arch = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.07, 8, 16, Math.PI), archMat);
+              arch.position.set(0.18, 0.88, 0); arch.rotation.y = Math.PI / 2; g.add(arch); vis.archMat = archMat;
+            } else if (tile.type === 'T') {
+              const bin = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.14, 0.78), new THREE.MeshStandardMaterial({ color: 0x881337, emissive: 0xbe123c, emissiveIntensity: 0.4 }));
+              bin.position.y = 0.86; g.add(bin);
+            } else if (tile.type === 'X') {
+              const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.36, 0.1, 14), new THREE.MeshStandardMaterial({ color: 0x991b1b, emissive: 0xef4444, emissiveIntensity: 0.4 }));
+              stand.position.y = 0.87; g.add(stand);
+            }
+
+            const slot = new THREE.Group(); slot.position.y = 0.88; g.add(slot); vis.itemSlot = slot;
+
+            const fireG = new THREE.Group(); fireG.position.y = 0.96; fireG.visible = false;
+            const f1 = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.82, 8), new THREE.MeshBasicMaterial({ color: 0xef4444 })); f1.position.y = 0.38; fireG.add(f1);
+            const f2 = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.62, 7), new THREE.MeshBasicMaterial({ color: 0xfacc15 })); f2.position.set(0.06, 0.32, 0.05); fireG.add(f2);
+            const fl = new THREE.PointLight(0xff5500, 2.5, 5.2); fl.position.y = 0.55; fireG.add(fl);
+            g.add(fireG); vis.fireGroup = fireG; vis.fireLight = fl;
+
+            G3.worldGroup.add(g); vis.group = g;
+          }
+          visRow.push(vis);
+        }
+        G3.tileVisuals.push(visRow);
+      }
+
+      state.players.forEach(p => {
+        const pm = createPlayerMesh(p);
+        pm.position.set(worldX(p.x), 0, worldZ(p.y));
+        G3.worldGroup.add(pm);
+        G3.playerMeshes.push(pm);
+      });
+    }
+
+    function spawn3DParticles(gx, gy, h, hexColor, count = 8, speed = 2.8, gravity = -7.5) {
+      if (!G3.ok) return;
+      const wx = worldX(gx), wz = worldZ(gy);
+      const geo = new THREE.BoxGeometry(0.11, 0.11, 0.11);
+      const mat = new THREE.MeshBasicMaterial({ color: hexColor });
+      for (let i = 0; i < count; i++) {
+        if (G3.particles.length > 160) break;
+        const m = new THREE.Mesh(geo, mat); m.position.set(wx, h, wz);
+        const a = Math.random() * Math.PI * 2;
+        const sp = (0.35 + Math.random() * 0.75) * speed;
+        G3.scene.add(m);
+        G3.particles.push({ mesh: m, vx: Math.cos(a) * sp, vy: 1.6 + Math.random() * 2.5, vz: Math.sin(a) * sp, g: gravity, life: 0.4 + Math.random() * 0.35, maxLife: 0.75 });
+      }
+    }
+
+    function addPopup(x, y, text, color = '#fbbf24') {
+      state.popups.push({ x, y, h: 1.75, text, color, life: 1.15, maxLife: 1.15 });
+    }
+
+    // =========================================================================
+    // SMART COACH & INTERACTIVE 3D GUIDING BEACON FOR P1
+    // =========================================================================
+    function findNearestTile(fromX, fromY, pred) {
+      let best = null, bestD = 999;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const t = state.tiles[r][c];
+          if (pred(t, r, c)) {
+            const d = Math.hypot(c + 0.5 - fromX, r + 0.5 - fromY);
+            if (d < bestD) { bestD = d; best = { r, c, t }; }
+          }
+        }
+      }
+      return best;
+    }
+
+    function updateSmartCoach() {
+      if (!state.showGuide || state.screen !== 'playing' || !state.players[0]) { state.beaconTarget = null; return; }
+      const p1 = state.players[0];
+      let icon = '👉', msg = '', target = null;
+
+      const fireTile = findNearestTile(p1.x, p1.y, t => t.onFire);
+      if (fireTile) {
+        if (p1.item && p1.item.kind === 'extinguisher') { icon = '🧯'; msg = 'KEBAKARAN! Arahkan ke api lalu TAHAN E untuk memadamkan!'; target = fireTile; }
+        else { icon = '🚨'; msg = 'KEBAKARAN! Ambil APAR Merah (tekan E) untuk padamkan mesin las!'; target = findNearestTile(p1.x, p1.y, t => t.item && t.item.kind === 'extinguisher'); }
+      } else if (p1.item) {
+        const k = p1.item.kind;
+        if (k === 'raw_frame') { icon = '🔥'; msg = 'Bawa Rangka Mentah ke Mesin LAS lalu tekan E (otomatis 3 detik).'; target = findNearestTile(p1.x, p1.y, t => t.type === 'W' && !t.item && !t.onFire); }
+        else if (k === 'raw_battery') { icon = '⚡'; msg = 'Bawa Baterai Kosong ke Dock CAS lalu tekan E (isi otomatis).'; target = findNearestTile(p1.x, p1.y, t => t.type === 'E' && !t.item); }
+        else if (k === 'raw_chip') { icon = '💻'; msg = 'Taruh Chip di Terminal CODE (tekan E), lalu TAHAN E untuk coding!'; target = findNearestTile(p1.x, p1.y, t => t.type === 'P' && !t.item); }
+        else if (k === 'burnt') { icon = '🗑️'; msg = 'Komponen gosong! Buang ke Tong Besi Tua (BUANG) dengan tekan E.'; target = findNearestTile(p1.x, p1.y, t => t.type === 'T'); }
+        else if (k === 'assembly') {
+          const rec = getMatchingRecipe(p1.item.parts);
+          if (rec && state.orders.some(o => o.recipeId === rec.id)) {
+            icon = '🚚'; msg = `${rec.name} SIAP! Bawa ke Conveyor KIRIM lalu tekan E untuk dapat skor!`;
+            target = findNearestTile(p1.x, p1.y, t => t.type === 'D');
+          } else {
+            icon = '🔧'; msg = 'Taruh di Meja RAKIT (tekan E) lalu tambahkan komponen yang kurang.';
+            target = findNearestTile(p1.x, p1.y, t => (t.type === 'A' || t.type === '#') && !t.item);
+          }
+        } else if (isProcessedPart(k)) {
+          const comb = findNearestTile(p1.x, p1.y, t => (t.type === 'A' || t.type === '#') && t.item && canCombine(t.item, p1.item));
+          if (comb) { icon = '🤖'; msg = 'Gabungkan ke komponen di Meja (tekan E) untuk langsung merakit Robot!'; target = comb; }
+          else { icon = '🔧'; msg = 'Taruh komponen jadi ini di Meja RAKIT (tekan E), lalu siapkan komponen pasangannya.'; target = findNearestTile(p1.x, p1.y, t => t.type === 'A' && !t.item) || findNearestTile(p1.x, p1.y, t => t.type === '#' && !t.item); }
+        } else if (k === 'extinguisher') { icon = '🧯'; msg = 'Api sudah padam! Kembalikan APAR ke dudukannya (tekan E).'; target = findNearestTile(p1.x, p1.y, t => t.type === 'X' && !t.item); }
+      } else {
+        const readyRobot = findNearestTile(p1.x, p1.y, t => t.item && t.item.kind === 'assembly' && getMatchingRecipe(t.item.parts) && state.orders.some(o => o.recipeId === getMatchingRecipe(t.item.parts).id));
+        const waitChip = findNearestTile(p1.x, p1.y, t => t.type === 'P' && t.item && t.item.kind === 'raw_chip');
+        const readyPart = findNearestTile(p1.x, p1.y, t => (t.type === 'W' && t.item && t.item.kind === 'welded_frame') || (t.type === 'E' && t.item && t.item.kind === 'charged_battery') || (t.type === 'P' && t.item && t.item.kind === 'coded_chip'));
+
+        if (readyRobot) { icon = '🤖'; msg = 'Robot sudah jadi di meja! Ambil (tekan E) lalu bawa ke Conveyor KIRIM.'; target = readyRobot; }
+        else if (waitChip) { icon = '💻'; msg = 'Chip menunggu di Terminal CODE! Berdiri menghadapnya lalu TAHAN E.'; target = waitChip; }
+        else if (readyPart) { icon = '✨'; msg = 'Komponen selesai diproses! Segera ambil (tekan E) dari mesin.'; target = readyPart; }
+        else if (state.orders.length > 0) {
+          const rec = RECIPES.find(r => r.id === state.orders[0].recipeId);
+          if (rec) {
+            let need = rec.parts.find(pt => !findNearestTile(p1.x, p1.y, t => t.item && (t.item.kind === pt || (t.item.kind === 'assembly' && t.item.parts.includes(pt)))));
+            if (!need) need = rec.parts[0];
+            if (need === 'welded_frame') { icon = '📦'; msg = `Order ${rec.name}: Ambil Rangka dari Peti RANGKA (tekan E) lalu las!`; target = findNearestTile(p1.x, p1.y, t => t.type === 'F'); }
+            else if (need === 'charged_battery') { icon = '🔋'; msg = `Order ${rec.name}: Ambil Baterai dari Peti BATERAI (tekan E) lalu cas!`; target = findNearestTile(p1.x, p1.y, t => t.type === 'B'); }
+            else { icon = '💾'; msg = `Order ${rec.name}: Ambil Chip dari Peti CHIP (tekan E) lalu coding!`; target = findNearestTile(p1.x, p1.y, t => t.type === 'C'); }
+          }
+        }
+      }
+      coachIcon.textContent = icon;
+      coachText.textContent = msg || 'Rakit robot sesuai clipboard order di atas!';
+      state.beaconTarget = target ? { r: target.r, c: target.c } : null;
+    }
+
+    function getContextPromptForP1() {
+      const p1 = state.players[0];
+      if (!p1) return null;
+      const tc = getTargetTileCoord(p1);
+      if (!tc) return null;
+      const t = state.tiles[tc.r][tc.c];
+      if (isWalkableTileType(t.type)) return null;
+
+      if (t.onFire) return p1.item && p1.item.kind === 'extinguisher' ? '[Tahan E] Padamkan Api!' : 'Ambil APAR Merah!';
+      if (t.type === 'P' && t.item && t.item.kind === 'raw_chip' && !p1.item) return '[Tahan E] Program Chip';
+      if (t.type === 'F' && !p1.item) return '[E] Ambil Rangka';
+      if (t.type === 'B' && !p1.item) return '[E] Ambil Baterai';
+      if (t.type === 'C' && !p1.item) return '[E] Ambil Chip';
+      if (t.type === 'W' && p1.item && p1.item.kind === 'raw_frame' && !t.item) return '[E] Las Rangka';
+      if (t.type === 'E' && p1.item && p1.item.kind === 'raw_battery' && !t.item) return '[E] Cas Baterai';
+      if (t.type === 'P' && p1.item && p1.item.kind === 'raw_chip' && !t.item) return '[E] Taruh Chip';
+      if (t.type === 'D' && p1.item && p1.item.kind === 'assembly') return '[E] Kirim Robot!';
+      if (t.type === 'T' && p1.item && p1.item.kind !== 'extinguisher') return '[E] Buang';
+      if ((t.type === 'A' || t.type === '#') && p1.item && t.item && canCombine(t.item, p1.item)) return '[E] Rakit Gabung!';
+      if ((t.type === 'A' || t.type === '#' || t.type === 'X') && p1.item && !t.item) return '[E] Taruh';
+      if (!p1.item && t.item) return '[E] Ambil';
+      return null;
+    }
+
+    // =========================================================================
+    // LEVEL INITIALIZATION & SIMULATION
+    // =========================================================================
+    function initLevel(mapIdx) {
+      const map = MAPS[mapIdx] || MAPS[0];
+      state.tiles = [];
+      for (let r = 0; r < ROWS; r++) {
+        const row = [];
+        for (let c = 0; c < COLS; c++) {
+          const ch = map.grid[r][c];
+          row.push({ type: ch, item: ch === 'X' ? makeItem('extinguisher') : null, progress: 0, burnProgress: 0, onFire: false, fireHealth: 1 });
+        }
+        state.tiles.push(row);
+      }
+
+      state.players = [
+        { id: 0, name: 'Bolt', color: '#38bdf8', hex: 0x38bdf8, x: map.p1.x, y: map.p1.y, vx: 0, vy: 0, fx: 0, fy: 1, item: null, dashTimer: 0, dashCd: 0, walkPhase: 0, moving: false, slipCd: 0 },
+        { id: 1, name: 'Spark', color: '#fb923c', hex: 0xfb923c, x: map.p2.x, y: map.p2.y, vx: 0, vy: 0, fx: 0, fy: 1, item: null, dashTimer: 0, dashCd: 0, walkPhase: 0, moving: false, slipCd: 0, aiCooldown: 0 }
+      ];
+
+      state.timeLeft = ROUND_SECONDS;
+      state.score = 0; state.combo = 1; state.maxCombo = 1; state.delivered = 0; state.missed = 0;
+      state.orders = []; state.flyingItems = []; state.popups = []; state.shake = 0;
+      state.orderTimer = 1.4; state.nextOrderId = 1; state.beaconTarget = null;
+      canvasShell.classList.remove('fire-alert', 'overclock-glow');
+
+      buildLevel3D();
+      spawnOrder();
+      spawnOrder();
+      updateHUD(true);
+    }
+
+    function spawnOrder() {
+      if (state.orders.length >= 4) return;
+      const recipe = RECIPES[Math.floor(Math.random() * RECIPES.length)];
+      state.orders.push({ id: state.nextOrderId++, recipeId: recipe.id, timeLeft: recipe.time, maxTime: recipe.time });
+      renderOrdersDOM();
+    }
+
+    function isSolid(r, c) {
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
+      return !isWalkableTileType(state.tiles[r][c].type);
+    }
+
+    // Smooth Overcooked-style forgiving tile target selection
+    function getTargetTileCoord(p) {
+      const checks = [
+        [p.x + p.fx * 0.72, p.y + p.fy * 0.72],
+        [p.x + p.fx * 0.55, p.y + p.fy * 0.55]
+      ];
+      for (const [cx, cy] of checks) {
+        const tx = Math.floor(cx), ty = Math.floor(cy);
+        if (tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS && !isWalkableTileType(state.tiles[ty][tx].type)) {
+          return { r: ty, c: tx };
+        }
+      }
+      const tx = Math.floor(p.x + p.fx * 0.72), ty = Math.floor(p.y + p.fy * 0.72);
+      if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return null;
+      return { r: ty, c: tx };
+    }
+
+    function triggerBounce(playerId) {
+      const pm = G3.playerMeshes[playerId];
+      if (pm) pm.userData.bounce = 1;
+    }
+
+    function handlePlayerAction(p, justPressed, isHeld) {
+      const target = getTargetTileCoord(p);
+      if (!target) return;
+      const tile = state.tiles[target.r][target.c];
+      const vis = G3.tileVisuals[target.r]?.[target.c];
+      const overclockBoost = state.combo >= 3 ? 1.25 : 1.0;
+
+      if (p.item && p.item.kind === 'extinguisher' && isHeld) {
+        if (Math.random() < 0.45) { spawn3DParticles(p.x + p.fx * 0.65, p.y + p.fy * 0.65, 0.72, 0xe7e5e4, 2, 2.4, -2.5); SFX.spray(); }
+        if (tile.onFire) {
+          tile.fireHealth -= 0.048;
+          if (tile.fireHealth <= 0) {
+            tile.onFire = false; tile.burnProgress = 0; tile.fireHealth = 1;
+            spawn3DParticles(target.c + 0.5, target.r + 0.5, 1.0, 0xfafaf9, 16, 3.6, -4);
+            addPopup(target.c + 0.5, target.r + 0.5, 'API PADAM!', '#38bdf8'); SFX.done();
+          }
+        }
+        if (justPressed && !tile.onFire && !tile.item && (tile.type === 'X' || tile.type === '#' || tile.type === 'A')) {
+          tile.item = p.item; p.item = null; triggerBounce(p.id); SFX.drop();
+        }
+        return;
+      }
+
+      if (tile.type === 'P' && tile.item && tile.item.kind === 'raw_chip' && !p.item && isHeld && !tile.onFire) {
+        tile.progress += (justPressed ? 0.14 : 0.025) * overclockBoost;
+        if (Math.random() < 0.3) { spawn3DParticles(target.c + 0.5, target.r + 0.5, 1.2, 0x22d3ee, 2, 1.8, -2); SFX.code(); }
+        if (tile.progress >= 1) {
+          tile.item = makeItem('coded_chip'); tile.progress = 0;
+          spawn3DParticles(target.c + 0.5, target.r + 0.5, 1.15, 0x34d399, 14, 3.2, -5);
+          addPopup(target.c + 0.5, target.r + 0.5, 'CHIP OK!', '#22d3ee'); SFX.done();
+        }
+        return;
+      }
+
+      if (!justPressed) return;
+      if (tile.onFire) { addPopup(target.c + 0.5, target.r + 0.5, 'AMBIL APAR!', '#fb7185'); SFX.wrong(); return; }
+
+      if (tile.type === 'T') {
+        if (p.item && p.item.kind !== 'extinguisher') {
+          p.item = null; triggerBounce(p.id);
+          spawn3DParticles(target.c + 0.5, target.r + 0.5, 0.9, 0xa8a29e, 10, 2.5, -7); SFX.drop();
+        }
+        return;
+      }
+
+      if (tile.type === 'D') {
+        if (p.item && p.item.kind === 'assembly') {
+          const recipe = getMatchingRecipe(p.item.parts);
+          if (recipe) {
+            const orderIdx = state.orders.findIndex(o => o.recipeId === recipe.id);
+            if (orderIdx !== -1) {
+              const order = state.orders[orderIdx];
+              const tip = Math.round((order.timeLeft / order.maxTime) * 35);
+              const gained = (recipe.points + tip) * state.combo;
+              const prevCombo = state.combo;
+              state.score += gained; state.delivered += 1;
+              state.combo = Math.min(4, state.combo + 1);
+              if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+              state.orders.splice(orderIdx, 1);
+              p.item = null; state.shake = 0.24; triggerBounce(p.id);
+              if (vis) vis.archFlash = 1;
+              spawn3DParticles(target.c + 0.5, target.r + 0.5, 1.25, recipe.hex, 24, 4.5, -7);
+              spawn3DParticles(target.c + 0.5, target.r + 0.5, 1.35, 0xfef08a, 14, 4.0, -6);
+              addPopup(target.c + 0.5, target.r + 0.5, `+${gained}!`, '#4ade80');
+              if (prevCombo < 3 && state.combo >= 3) {
+                SFX.overclock();
+                showToast('⚡ OVERCLOCK AKTIF! Mesin bengkel +25% lebih cepat!');
+              } else {
+                SFX.deliver();
+              }
+              if (state.orders.length === 0) spawnOrder();
+              updateHUD(true);
+              return;
+            }
+          }
+          p.item = null; state.combo = 1; state.shake = 0.16;
+          addPopup(target.c + 0.5, target.r + 0.5, 'ORDER SALAH!', '#fb7185'); SFX.wrong(); updateHUD(true);
+        }
+        return;
+      }
+
+      const dispenserMap = { F: 'raw_frame', B: 'raw_battery', C: 'raw_chip' };
+      if (dispenserMap[tile.type]) {
+        if (!p.item && !tile.item) {
+          p.item = makeItem(dispenserMap[tile.type]); triggerBounce(p.id);
+          if (vis) vis.cratePop = 1; SFX.pick(); return;
+        }
+      }
+
+      if (tile.type === 'W') {
+        if (p.item && !tile.item && p.item.kind === 'raw_frame') { tile.item = p.item; tile.progress = 0; tile.burnProgress = 0; p.item = null; triggerBounce(p.id); SFX.drop(); return; }
+        if (!p.item && tile.item) { p.item = tile.item; tile.item = null; tile.progress = 0; tile.burnProgress = 0; triggerBounce(p.id); SFX.pick(); return; }
+        return;
+      }
+      if (tile.type === 'E') {
+        if (p.item && !tile.item && p.item.kind === 'raw_battery') { tile.item = p.item; tile.progress = 0; p.item = null; triggerBounce(p.id); SFX.drop(); return; }
+        if (!p.item && tile.item) { p.item = tile.item; tile.item = null; tile.progress = 0; triggerBounce(p.id); SFX.pick(); return; }
+        return;
+      }
+      if (tile.type === 'P') {
+        if (p.item && !tile.item && p.item.kind === 'raw_chip') { tile.item = p.item; tile.progress = 0; p.item = null; triggerBounce(p.id); SFX.drop(); return; }
+        if (!p.item && tile.item && tile.item.kind !== 'raw_chip') { p.item = tile.item; tile.item = null; tile.progress = 0; triggerBounce(p.id); SFX.pick(); return; }
+        return;
+      }
+
+      if (tile.type === '#' || tile.type === 'A' || tile.type === 'X') {
+        if (p.item && tile.item) {
+          const merged = canCombine(tile.item, p.item);
+          if (merged) {
+            tile.item = merged; p.item = null; triggerBounce(p.id);
+            const rec = getMatchingRecipe(merged.parts);
+            spawn3DParticles(target.c + 0.5, target.r + 0.5, 1.15, rec ? rec.hex : 0xfacc15, 20, 3.8, -6);
+            addPopup(target.c + 0.5, target.r + 0.5, rec ? rec.name.toUpperCase() + '!' : 'TERGABUNG!', '#facc15'); SFX.done(); return;
+          }
+          const tmp = tile.item; tile.item = p.item; p.item = tmp; triggerBounce(p.id); SFX.pick(); return;
+        }
+        if (p.item && !tile.item) { tile.item = p.item; p.item = null; triggerBounce(p.id); SFX.drop(); return; }
+        if (!p.item && tile.item) { p.item = tile.item; tile.item = null; triggerBounce(p.id); SFX.pick(); return; }
+      }
+    }
+
+    let nextFlyId = 1;
+    function handlePlayerThrow(p) {
+      if (!p.item || p.item.kind === 'extinguisher') return;
+      state.flyingItems.push({
+        id: nextFlyId++, item: p.item, ownerId: p.id,
+        x: p.x + p.fx * 0.45, y: p.y + p.fy * 0.45, vx: p.fx * 9.5, vy: p.fy * 9.5, life: 0.38, maxLife: 0.38
+      });
+      p.item = null; triggerBounce(p.id); SFX.throwItem();
+    }
+
+    function getAIInput(ai, dt) {
+      const inp = { up: false, down: false, left: false, right: false, action: false, throwKey: false, dash: false };
+      ai.aiCooldown = Math.max(0, (ai.aiCooldown || 0) - dt);
+      const findT = (pred) => findNearestTile(ai.x, ai.y, pred);
+
+      const burning = findT(t => t.onFire);
+      let goal = null, holdAction = false;
+
+      if (burning) {
+        if (ai.item && ai.item.kind === 'extinguisher') { goal = burning; holdAction = true; }
+        else if (!ai.item) goal = findT(t => t.item && t.item.kind === 'extinguisher');
+        else goal = findT(t => (t.type === '#' || t.type === 'A') && !t.item);
+      }
+
+      if (!goal && ai.item) {
+        if (ai.item.kind === 'extinguisher') goal = findT(t => t.type === 'X' && !t.item) || findT(t => t.type === '#' && !t.item);
+        else if (ai.item.kind === 'burnt') goal = findT(t => t.type === 'T');
+        else if (ai.item.kind === 'raw_frame') goal = findT(t => t.type === 'W' && !t.item && !t.onFire);
+        else if (ai.item.kind === 'raw_battery') goal = findT(t => t.type === 'E' && !t.item && !t.onFire);
+        else if (ai.item.kind === 'raw_chip') goal = findT(t => t.type === 'P' && !t.item && !t.onFire);
+        else if (ai.item.kind === 'assembly') {
+          const rec = getMatchingRecipe(ai.item.parts);
+          if (rec && state.orders.some(o => o.recipeId === rec.id)) goal = findT(t => t.type === 'D');
+          else goal = findT(t => (t.type === 'A' || t.type === '#') && !t.item);
+        } else if (isProcessedPart(ai.item.kind)) {
+          goal = findT(t => (t.type === 'A' || t.type === '#') && t.item && canCombine(t.item, ai.item));
+          if (!goal) goal = findT(t => t.type === 'A' && !t.item) || findT(t => t.type === '#' && !t.item);
+        }
+      }
+
+      if (!goal && !ai.item) {
+        const readyRobot = findT(t => t.item && t.item.kind === 'assembly' && getMatchingRecipe(t.item.parts) && state.orders.some(o => o.recipeId === getMatchingRecipe(t.item.parts).id));
+        if (readyRobot) goal = readyRobot;
+        if (!goal) { const waitingChip = findT(t => t.type === 'P' && t.item && t.item.kind === 'raw_chip'); if (waitingChip) { goal = waitingChip; holdAction = true; } }
+        if (!goal) {
+          goal = findT(t => (t.type === 'W' && t.item && (t.item.kind === 'welded_frame' || t.item.kind === 'burnt')) ||
+                            (t.type === 'E' && t.item && t.item.kind === 'charged_battery') ||
+                            (t.type === 'P' && t.item && t.item.kind === 'coded_chip'));
+        }
+        if (!goal && state.orders.length > 0) {
+          const rec = RECIPES.find(r => r.id === state.orders[0].recipeId);
+          if (rec) {
+            let needed = rec.parts.find(part => !findT(t => t.item && (t.item.kind === part || (t.item.kind === 'assembly' && t.item.parts.includes(part)))));
+            if (!needed) needed = rec.parts[rec.parts.length - 1];
+            if (needed === 'welded_frame') goal = findT(t => t.type === 'F');
+            else if (needed === 'charged_battery') goal = findT(t => t.type === 'B');
+            else if (needed === 'coded_chip') goal = findT(t => t.type === 'C');
+          }
+        }
+      }
+
+      if (!goal) return inp;
+      const adjOffsets = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+      let stand = null, bestDist = 999;
+      for (const [dr, dc] of adjOffsets) {
+        const nr = goal.r + dr, nc = goal.c + dc;
+        if (!isSolid(nr, nc)) {
+          const d = Math.hypot(nc + 0.5 - ai.x, nr + 0.5 - ai.y);
+          if (d < bestDist) { bestDist = d; stand = { x: nc + 0.5, y: nr + 0.5 }; }
+        }
+      }
+      if (!stand) return inp;
+
+      const dx = stand.x - ai.x, dy = stand.y - ai.y;
+      if (Math.hypot(dx, dy) > 0.18) {
+        if (dx < -0.1) inp.left = true; if (dx > 0.1) inp.right = true;
+        if (dy < -0.1) inp.up = true; if (dy > 0.1) inp.down = true;
+      } else {
+        const gx = (goal.c + 0.5) - ai.x, gy = (goal.r + 0.5) - ai.y;
+        if (Math.abs(gx) > Math.abs(gy)) { ai.fx = gx > 0 ? 1 : -1; ai.fy = 0; }
+        else { ai.fx = 0; ai.fy = gy > 0 ? 1 : -1; }
+        if (holdAction) inp.action = true;
+        else if (ai.aiCooldown <= 0) { inp.action = true; ai.aiCooldown = 0.35; }
+      }
+      return inp;
+    }
+
+    function getLocalInput(playerIdx) {
+      if (playerIdx === 0) {
+        const isAnalog = touchInput.active;
+        return {
+          up: !!(keys['KeyW'] || touchInput.up), down: !!(keys['KeyS'] || touchInput.down),
+          left: !!(keys['KeyA'] || touchInput.left), right: !!(keys['KeyD'] || touchInput.right),
+          action: !!(keys['KeyE'] || keys['KeyF'] || touchInput.action),
+          throwKey: !!(keys['KeyQ'] || touchInput.throwKey),
+          dash: !!(keys['ShiftLeft'] || keys['Space'] || touchInput.dash),
+          dx: isAnalog ? touchInput.dx : undefined,
+          dy: isAnalog ? touchInput.dy : undefined
+        };
+      }
+      return {
+        up: !!keys['ArrowUp'], down: !!keys['ArrowDown'], left: !!keys['ArrowLeft'], right: !!keys['ArrowRight'],
+        action: !!(keys['Enter'] || keys['KeyL'] || keys['Slash']), throwKey: !!(keys['KeyK'] || keys['Period']), dash: !!keys['ShiftRight']
+      };
+    }
+
+    function collidesGrid(x, y, r) {
+      const checks = [[x - r, y - r], [x + r, y - r], [x - r, y + r], [x + r, y + r]];
+      for (const [cx, cy] of checks) { if (isSolid(Math.floor(cy), Math.floor(cx))) return true; }
+      return false;
+    }
+
+    function findNearestEmptyCounter(sr, sc) {
+      let best = null, bestD = 999;
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const t = state.tiles[r][c];
+        if ((t.type === '#' || t.type === 'A') && !t.item) {
+          const d = Math.hypot(r - sr, c - sc);
+          if (d < bestD) { bestD = d; best = t; }
+        }
+      }
+      return best;
+    }
+
+    function updateSimulation(dt) {
+      const map = MAPS[state.mapIndex] || MAPS[0];
+      const overclockBoost = state.combo >= 3 ? 1.25 : 1.0;
+      state.shake = Math.max(0, state.shake - dt);
+
+      state.timeLeft -= dt;
+      if (state.timeLeft <= 0) { state.timeLeft = 0; finishGame(); return; }
+
+      state.orderTimer -= dt;
+      if (state.orderTimer <= 0) { spawnOrder(); state.orderTimer = map.orderInterval; }
+      let ordersChanged = false;
+      for (let i = state.orders.length - 1; i >= 0; i--) {
+        state.orders[i].timeLeft -= dt;
+        if (state.orders[i].timeLeft <= 0) {
+          state.orders.splice(i, 1); state.missed += 1; state.combo = 1;
+          state.score = Math.max(0, state.score - 20); SFX.wrong(); ordersChanged = true;
+        }
+      }
+      if (state.orders.length === 0) { spawnOrder(); ordersChanged = true; }
+
+      const inputs = [
+        getLocalInput(0),
+        state.mode === 'local' ? getLocalInput(1) : state.mode === 'ai' ? getAIInput(state.players[1], dt) : remoteInput
+      ];
+
+      state.players.forEach((p, idx) => {
+        const inp = inputs[idx];
+        const justAct = inp.action && !prevAction[idx];
+        const justThrow = inp.throwKey && !prevThrow[idx];
+        const justDash = inp.dash && !prevDash[idx];
+        prevAction[idx] = inp.action; prevThrow[idx] = inp.throwKey; prevDash[idx] = inp.dash;
+
+        p.dashCd = Math.max(0, p.dashCd - dt);
+        p.dashTimer = Math.max(0, p.dashTimer - dt);
+        p.slipCd = Math.max(0, (p.slipCd || 0) - dt);
+
+        let mx, my;
+        if (inp.dx !== undefined && inp.dy !== undefined) {
+          const rawDist = Math.hypot(inp.dx, inp.dy);
+          if (rawDist > 0.08) {
+            const clampedDist = Math.min(1.0, rawDist);
+            const normX = inp.dx / rawDist;
+            const normY = inp.dy / rawDist;
+            mx = normX * clampedDist;
+            my = normY * clampedDist;
+            p.moving = true;
+            p.fx = normX;
+            p.fy = normY;
+            p.walkPhase += dt * (p.dashTimer > 0 ? 22 : 13);
+            if (Math.random() < 0.14) spawn3DParticles(p.x, p.y, 0.08, 0xa8a29e, 1, 0.8, -4);
+          } else {
+            mx = 0; my = 0; p.moving = false;
+          }
+        } else {
+          mx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+          my = (inp.down ? 1 : 0) - (inp.up ? 1 : 0);
+          p.moving = (mx !== 0 || my !== 0);
+          if (p.moving) {
+            const len = Math.hypot(mx, my); mx /= len; my /= len;
+            p.fx = mx; p.fy = my;
+            p.walkPhase += dt * (p.dashTimer > 0 ? 22 : 13);
+            if (Math.random() < 0.14) spawn3DParticles(p.x, p.y, 0.08, 0xa8a29e, 1, 0.8, -4);
+          }
+        }
+
+        if (justDash && p.dashCd <= 0) {
+          p.dashTimer = 0.16; p.dashCd = 0.85;
+          spawn3DParticles(p.x, p.y, 0.45, p.hex, 10, 3.0, -2); SFX.dash();
+        }
+        if ((p.dashTimer > 0 || state.combo >= 3) && p.moving && Math.random() < (p.dashTimer > 0 ? 0.65 : 0.16)) {
+          spawn3DParticles(p.x - p.fx * 0.25, p.y - p.fy * 0.25, 0.4, 0xfef08a, 1, 1.4, -1);
+        }
+
+        // Check special floor tile under player (Moving Belt or Oil Slick!)
+        const fr = Math.floor(p.y), fc = Math.floor(p.x);
+        const floorTile = state.tiles[fr]?.[fc];
+        let beltPushX = 0;
+        let onOil = false;
+        if (floorTile) {
+          if (floorTile.type === '>') beltPushX = 2.05;
+          else if (floorTile.type === '<') beltPushX = -2.05;
+          else if (floorTile.type === 'O') onOil = true;
+        }
+
+        const speed = p.dashTimer > 0 ? 11.2 : 4.8;
+        const targetVx = mx * speed + beltPushX;
+        const targetVy = my * speed;
+        const accel = onOil ? 3.2 : 24; // Oil makes you glide/drift smoothly!
+        p.vx += (targetVx - p.vx) * Math.min(1, dt * accel);
+        p.vy += (targetVy - p.vy) * Math.min(1, dt * accel);
+
+        if (onOil && p.moving && p.slipCd <= 0) {
+          p.slipCd = 0.9;
+          spawn3DParticles(p.x, p.y, 0.12, 0x312e81, 5, 2.0, -6);
+          SFX.slip();
+        }
+
+        const radius = 0.31;
+        const nx = p.x + p.vx * dt; if (!collidesGrid(nx, p.y, radius)) p.x = nx; else p.vx = 0;
+        const ny = p.y + p.vy * dt; if (!collidesGrid(p.x, ny, radius)) p.y = ny; else p.vy = 0;
+
+        if (justThrow) handlePlayerThrow(p);
+        handlePlayerAction(p, justAct, inp.action);
+      });
+
+      const p0 = state.players[0], p1 = state.players[1];
+      const pdx = p1.x - p0.x, pdy = p1.y - p0.y;
+      const pdist = Math.hypot(pdx, pdy);
+      if (pdist > 0.001 && pdist < 0.62) {
+        const push = (0.62 - pdist) * 0.5;
+        const ux = pdx / pdist, uy = pdy / pdist;
+        if (!collidesGrid(p0.x - ux * push, p0.y - uy * push, 0.31)) { p0.x -= ux * push; p0.y -= uy * push; }
+        if (!collidesGrid(p1.x + ux * push, p1.y + uy * push, 0.31)) { p1.x += ux * push; p1.y += uy * push; }
+      }
+
+      let anyFire = false;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const t = state.tiles[r][c];
+          if (t.onFire) {
+            anyFire = true;
+            if (Math.random() < 0.25) spawn3DParticles(c + 0.5, r + 0.5, 1.4, Math.random() < 0.5 ? 0xf97316 : 0x44403c, 1, 1.4, 2.2);
+            continue;
+          }
+          if (t.type === 'W' && t.item) {
+            if (t.item.kind === 'raw_frame') {
+              t.progress += (dt / 3.0) * overclockBoost;
+              if (Math.random() < 0.28) spawn3DParticles(c + 0.5, r + 0.5, 1.1, 0xfef08a, 1, 2.8, -6);
+              if (t.progress >= 1) {
+                t.item = makeItem('welded_frame'); t.progress = 0; t.burnProgress = 0;
+                addPopup(c + 0.5, r + 0.5, 'LAS SELESAI!', '#fbbf24'); SFX.done();
+              }
+            } else if (t.item.kind === 'welded_frame') {
+              t.burnProgress += (dt / 7.0) * map.burnRate;
+              if (t.burnProgress > 0.5 && Math.random() < 0.18) spawn3DParticles(c + 0.5, r + 0.5, 1.15, 0x78716c, 1, 1.0, 2.0);
+              if (t.burnProgress >= 1) {
+                t.item = makeItem('burnt'); t.onFire = true; t.fireHealth = 1; t.burnProgress = 0; anyFire = true;
+                state.shake = 0.32;
+                spawn3DParticles(c + 0.5, r + 0.5, 1.15, 0xef4444, 20, 4.2, -5);
+                addPopup(c + 0.5, r + 0.5, 'KEBAKARAN!', '#ef4444'); SFX.fire();
+              }
+            }
+          } else if (t.type === 'E' && t.item && t.item.kind === 'raw_battery') {
+            t.progress += (dt / 2.6) * overclockBoost;
+            if (Math.random() < 0.18) spawn3DParticles(c + 0.5, r + 0.5, 1.05, 0x34d399, 1, 1.6, 1.5);
+            if (t.progress >= 1) {
+              t.item = makeItem('charged_battery'); t.progress = 0;
+              addPopup(c + 0.5, r + 0.5, 'BATERAI PENUH!', '#34d399'); SFX.done();
+            }
+          }
+        }
+      }
+
+      canvasShell.classList.toggle('fire-alert', anyFire);
+      canvasShell.classList.toggle('overclock-glow', !anyFire && state.combo >= 3);
+
+      for (let i = state.flyingItems.length - 1; i >= 0; i--) {
+        const fi = state.flyingItems[i];
+        fi.x += fi.vx * dt; fi.y += fi.vy * dt; fi.life -= dt;
+        let landed = false;
+        for (const p of state.players) {
+          if (p.id !== fi.ownerId && !p.item && Math.hypot(p.x - fi.x, p.y - fi.y) < 0.55) {
+            p.item = fi.item; triggerBounce(p.id); addPopup(p.x, p.y, 'TANGKAP!', p.color); SFX.pick(); landed = true; break;
+          }
+        }
+        const c = Math.floor(fi.x), r = Math.floor(fi.y);
+        if (!landed && (fi.life <= 0 || c < 0 || c >= COLS || r < 0 || r >= ROWS)) {
+          const clampC = Math.max(0, Math.min(COLS - 1, c)), clampR = Math.max(0, Math.min(ROWS - 1, r));
+          const tile = state.tiles[clampR][clampC];
+          if (tile && !tile.onFire) {
+            if (tile.type === 'T') { landed = true; SFX.drop(); }
+            else if ((tile.type === '#' || tile.type === 'A') && !tile.item) { tile.item = fi.item; landed = true; SFX.drop(); }
+            else if ((tile.type === '#' || tile.type === 'A') && tile.item) {
+              const merged = canCombine(tile.item, fi.item);
+              if (merged) {
+                tile.item = merged; spawn3DParticles(clampC + 0.5, clampR + 0.5, 1.15, 0xfacc15, 14, 3.2, -5);
+                addPopup(clampC + 0.5, clampR + 0.5, 'KOMBO LEMPAR!', '#facc15'); SFX.done(); landed = true;
+              }
+            } else if (tile.type === 'W' && !tile.item && fi.item.kind === 'raw_frame') { tile.item = fi.item; tile.progress = 0; landed = true; SFX.drop(); }
+            else if (tile.type === 'E' && !tile.item && fi.item.kind === 'raw_battery') { tile.item = fi.item; tile.progress = 0; landed = true; SFX.drop(); }
+            else if (tile.type === 'P' && !tile.item && fi.item.kind === 'raw_chip') { tile.item = fi.item; tile.progress = 0; landed = true; SFX.drop(); }
+          }
+          if (!landed) { const fb = findNearestEmptyCounter(clampR, clampC); if (fb) fb.item = fi.item; landed = true; SFX.drop(); }
+        }
+        if (landed) state.flyingItems.splice(i, 1);
+      }
+
+      for (let i = state.popups.length - 1; i >= 0; i--) {
+        const pp = state.popups[i]; pp.h += dt * 1.15; pp.life -= dt;
+        if (pp.life <= 0) state.popups.splice(i, 1);
+      }
+
+      updateSmartCoach();
+      updateHUD(ordersChanged);
+
+      if (state.mode === 'online' && net.role === 'host' && net.connected) {
+        const now = performance.now();
+        if (now - net.lastSyncSent > 48) { net.lastSyncSent = now; sendNet({ type: 'state', payload: serializeState() }); }
+      }
+    }
+
+    // =========================================================================
+    // 3D VISUAL SYNC & PROJECTED OVERLAY
+    // =========================================================================
+    function updateVisuals3D(dt, nowSec) {
+      if (!G3.ok) return;
+
+      if (G3.beltTex) G3.beltTex.offset.x = -(nowSec * 0.9) % 1;
+      if (G3.floorBeltRightTex) G3.floorBeltRightTex.offset.x = -(nowSec * 1.4) % 1;
+      if (G3.floorBeltLeftTex) G3.floorBeltLeftTex.offset.x = (nowSec * 1.4) % 1;
+      G3.fanBlades.forEach(f => { f.rotation.z = nowSec * 3.0; });
+      if (G3.craneTrolley) {
+        G3.craneTrolley.position.x = Math.sin(nowSec * 0.45) * 4.2;
+      }
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const tile = state.tiles[r]?.[c];
+          const vis = G3.tileVisuals[r]?.[c];
+          if (!tile || !vis || !vis.group) continue;
+
+          const wantKey = itemKey(tile.item);
+          if (wantKey !== vis.itemKey) {
+            if (vis.itemMesh) vis.itemSlot.remove(vis.itemMesh);
+            vis.itemMesh = tile.item ? createItemMesh(tile.item) : null;
+            if (vis.itemMesh) vis.itemSlot.add(vis.itemMesh);
+            vis.itemKey = wantKey;
+          }
+
+          if (vis.itemMesh) {
+            if (vis.itemMesh.userData.hoverSpin) {
+              vis.itemMesh.rotation.y = nowSec * 1.6;
+              vis.itemMesh.position.y = Math.sin(nowSec * 3.5) * 0.05;
+            }
+            vis.itemMesh.traverse(ch => {
+              if (ch.userData.spin) ch.rotation.y = nowSec * 3.0;
+              if (ch.userData.spinFast) ch.rotation.y = nowSec * 15;
+            });
+          }
+
+          if (vis.crateSample) {
+            vis.cratePop = Math.max(0, vis.cratePop - dt * 4);
+            vis.crateSample.rotation.y = nowSec * 1.3 + c;
+            vis.crateSample.position.y = 1.02 + Math.sin(nowSec * 2.8 + c) * 0.06 + Math.sin(vis.cratePop * Math.PI) * 0.35;
+          }
+
+          if (vis.welderArm) {
+            const welding = tile.item && tile.item.kind === 'raw_frame' && !tile.onFire;
+            vis.welderArm.position.y = welding ? 1.24 + Math.sin(nowSec * 38) * 0.035 : 1.48;
+            vis.welderLight.intensity = welding ? 2.4 + Math.random() * 1.8 : (tile.burnProgress > 0.3 ? 1.4 + Math.sin(nowSec * 22) * 0.9 : 0);
+          }
+
+          if (vis.chargerRing) {
+            const charging = tile.item && tile.item.kind === 'raw_battery';
+            vis.chargerRing.position.y = charging ? 0.94 + ((nowSec * 0.95) % 0.48) : 0.94;
+            const sc = charging ? 1.0 + Math.sin(nowSec * 9) * 0.12 : 1.0;
+            vis.chargerRing.scale.set(sc, sc, 1);
+          }
+
+          if (vis.codeHolo) {
+            const coding = tile.item && tile.item.kind === 'raw_chip' && tile.progress > 0;
+            vis.codeHolo.visible = coding;
+            if (coding) { vis.codeHolo.position.y = 1.62 + Math.sin(nowSec * 6) * 0.06; vis.codeHolo.rotation.y = Math.sin(nowSec * 3) * 0.2; }
+          }
+
+          if (vis.archMat && vis.archFlash > 0) {
+            vis.archFlash = Math.max(0, vis.archFlash - dt * 2.2);
+            vis.archMat.emissive.setHex(vis.archFlash > 0.1 ? 0x22c55e : 0xd97706);
+            vis.archMat.emissiveIntensity = 0.4 + vis.archFlash * 1.8;
+          }
+
+          if (vis.fireGroup) {
+            vis.fireGroup.visible = tile.onFire;
+            if (tile.onFire) {
+              const s = 0.85 + Math.sin(nowSec * 22 + c) * 0.24;
+              vis.fireGroup.scale.set(s, 0.95 + Math.cos(nowSec * 18) * 0.25, s);
+              vis.fireGroup.rotation.y = nowSec * 4.5;
+              vis.fireLight.intensity = 2.4 + Math.random() * 2.0;
+            }
+          }
+        }
+      }
+
+      state.players.forEach((p, i) => {
+        const pm = G3.playerMeshes[i];
+        if (!pm) return;
+        const ud = pm.userData;
+        pm.position.set(worldX(p.x), 0, worldZ(p.y));
+        const targetYaw = Math.atan2(p.fx, p.fy);
+        let diff = targetYaw - pm.rotation.y;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        pm.rotation.y += diff * Math.min(1, dt * 18);
+
+        const swing = p.moving ? Math.sin(p.walkPhase) * 0.58 : 0;
+        ud.legL.rotation.x = swing; ud.legR.rotation.x = -swing;
+        if (p.item) { ud.armPivotL.rotation.x = -1.28; ud.armPivotR.rotation.x = -1.28; }
+        else { ud.armPivotL.rotation.x = -swing * 0.85; ud.armPivotR.rotation.x = swing * 0.85; }
+
+        ud.bounce = Math.max(0, ud.bounce - dt * 5.5);
+        const bs = 1 + Math.sin(ud.bounce * Math.PI) * 0.22;
+        ud.rig.scale.set(1 / Math.sqrt(bs), bs, 1 / Math.sqrt(bs));
+        ud.rig.position.y = p.moving ? Math.abs(Math.sin(p.walkPhase)) * 0.09 : Math.sin(nowSec * 3 + i) * 0.025;
+        ud.rig.rotation.x = p.dashTimer > 0 ? 0.3 : (p.moving ? 0.09 : 0);
+
+        const ts = p.dashTimer > 0 ? 2.0 : 0.7;
+        ud.thrL.scale.set(1, ts, 1); ud.thrR.scale.set(1, ts, 1);
+
+        const hk = itemKey(p.item);
+        if (hk !== ud.heldKey) {
+          if (ud.heldMesh) ud.handSlot.remove(ud.heldMesh);
+          ud.heldMesh = p.item ? createItemMesh(p.item) : null;
+          if (ud.heldMesh) ud.handSlot.add(ud.heldMesh);
+          ud.heldKey = hk;
+        }
+
+        const hr = G3.highlightRings[i];
+        if (hr) {
+          const tc = state.screen === 'playing' ? getTargetTileCoord(p) : null;
+          if (tc && !isWalkableTileType(state.tiles[tc.r][tc.c].type)) {
+            hr.visible = true; hr.position.set(worldX(tc.c + 0.5), 0.86, worldZ(tc.r + 0.5));
+          } else { hr.visible = false; }
+        }
+      });
+
+      if (G3.beaconArrow) {
+        if (state.showGuide && state.screen === 'playing' && state.beaconTarget) {
+          G3.beaconArrow.visible = true;
+          G3.beaconArrow.position.set(worldX(state.beaconTarget.c + 0.5), 1.75 + Math.sin(nowSec * 5.5) * 0.22, worldZ(state.beaconTarget.r + 0.5));
+          G3.beaconArrow.rotation.y = nowSec * 2.5;
+        } else { G3.beaconArrow.visible = false; }
+      }
+
+      const activeFlyIds = new Set();
+      state.flyingItems.forEach((fi, idx) => {
+        const fid = fi.id || ('r' + idx);
+        activeFlyIds.add(fid);
+        let mesh = G3.flyingMeshes.get(fid);
+        if (!mesh) { mesh = createItemMesh(fi.item); G3.worldGroup.add(mesh); G3.flyingMeshes.set(fid, mesh); }
+        const prog = 1 - Math.max(0, (fi.life || 0) / (fi.maxLife || 0.38));
+        mesh.position.set(worldX(fi.x), 0.9 + Math.sin(prog * Math.PI) * 1.65, worldZ(fi.y));
+        mesh.rotation.x += dt * 11; mesh.rotation.y += dt * 9;
+      });
+      for (const [fid, mesh] of G3.flyingMeshes.entries()) {
+        if (!activeFlyIds.has(fid)) { G3.worldGroup.remove(mesh); G3.flyingMeshes.delete(fid); }
+      }
+
+      for (let i = G3.particles.length - 1; i >= 0; i--) {
+        const pt = G3.particles[i]; pt.life -= dt;
+        if (pt.life <= 0) { G3.scene.remove(pt.mesh); G3.particles.splice(i, 1); continue; }
+        pt.vy += pt.g * dt;
+        pt.mesh.position.x += pt.vx * dt;
+        pt.mesh.position.y = Math.max(0.06, pt.mesh.position.y + pt.vy * dt);
+        pt.mesh.position.z += pt.vz * dt;
+        pt.mesh.rotation.x += dt * 6; pt.mesh.rotation.y += dt * 6;
+        pt.mesh.scale.setScalar(Math.max(0.05, pt.life / pt.maxLife));
+      }
+
+      let yaw = G3.orbitYaw, pitch = G3.orbitPitch, dist = G3.orbitDist;
+      let lookX = 0, lookY = 0.3, lookZ = 0.15;
+
+      if (state.screen === 'menu') {
+        yaw = Math.sin(nowSec * 0.3) * 0.38;
+        pitch = 0.64 + Math.cos(nowSec * 0.22) * 0.04;
+        dist = 13.6;
+      } else if (state.dynamicCam && state.players.length >= 2) {
+        const midX = (worldX(state.players[0].x) + worldX(state.players[1].x)) * 0.22;
+        const midZ = (worldZ(state.players[0].y) + worldZ(state.players[1].y)) * 0.18;
+        lookX = midX * 0.6; lookZ = 0.15 + midZ * 0.6;
+      }
+
+      // Responsive aspect ratio adjustment (mobile portrait camera pull-back)
+      if (G3.camera && G3.camera.aspect && G3.camera.aspect < 1.35) {
+        const aspectZoom = Math.min(2.1, 1.35 / G3.camera.aspect);
+        dist *= aspectZoom;
+      }
+
+      let wantX = lookX + Math.sin(yaw) * Math.cos(pitch) * dist;
+      let wantY = lookY + Math.sin(pitch) * dist;
+      let wantZ = lookZ + Math.cos(yaw) * Math.cos(pitch) * dist;
+
+      if (state.shake > 0) {
+        const mag = state.shake * 0.48;
+        wantX += (Math.random() - 0.5) * mag;
+        wantY += (Math.random() - 0.5) * mag;
+      }
+
+      G3.camPos.lerp(new THREE.Vector3(wantX, wantY, wantZ), Math.min(1, dt * 6));
+      G3.camTarget.lerp(new THREE.Vector3(lookX, lookY, lookZ), Math.min(1, dt * 6));
+      G3.camera.position.copy(G3.camPos);
+      G3.camera.lookAt(G3.camTarget);
+      G3.renderer.render(G3.scene, G3.camera);
+    }
+
+    function projectTo2D(wx, wy, wz) {
+      const v = new THREE.Vector3(wx, wy, wz);
+      v.project(G3.camera);
+      return { x: (v.x * 0.5 + 0.5) * fxCanvas.width, y: (-v.y * 0.5 + 0.5) * fxCanvas.height };
+    }
+
+    function drawPill(cx, cy, text, bg, textColor, dpr, fontSize = 10) {
+      fxCtx.font = `800 ${Math.round(fontSize * dpr)}px Inter, sans-serif`;
+      const tw = fxCtx.measureText(text).width;
+      const pw = tw + 12 * dpr, ph = (fontSize + 8) * dpr;
+      fxCtx.fillStyle = bg;
+      fxCtx.beginPath(); fxCtx.roundRect(cx - pw / 2, cy - ph / 2, pw, ph, 6 * dpr); fxCtx.fill();
+      fxCtx.fillStyle = textColor; fxCtx.textAlign = 'center'; fxCtx.textBaseline = 'middle';
+      fxCtx.fillText(text, cx, cy + 0.5 * dpr);
+    }
+
+    function renderOverlay2D() {
+      fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+      if (!G3.ok || state.screen === 'menu') return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const t = state.tiles[r]?.[c];
+          if (!t) continue;
+          const wx = worldX(c + 0.5), wz = worldZ(r + 0.5);
+
+          if (state.showGuide && STATION_INFO[t.type] && STATION_INFO[t.type].tag) {
+            const pt = projectTo2D(wx, 1.38, wz);
+            drawPill(pt.x, pt.y, STATION_INFO[t.type].tag, 'rgba(28, 25, 23, 0.78)', '#fef3c7', dpr, 9);
+          }
+          if (t.progress > 0 && t.progress < 1) {
+            const pt = projectTo2D(wx, 1.68, wz);
+            drawHudBar(pt.x, pt.y, 46 * dpr, 8 * dpr, t.progress, '#22d3ee');
+          }
+          if (t.burnProgress > 0.22 && !t.onFire) {
+            const pt = projectTo2D(wx, 1.78, wz);
+            const flash = Math.floor(performance.now() / 150) % 2 === 0;
+            drawHudBar(pt.x, pt.y, 48 * dpr, 8 * dpr, t.burnProgress, flash ? '#ef4444' : '#f97316');
+          }
+          if (t.onFire) {
+            const pt = projectTo2D(wx, 1.95, wz);
+            drawHudBar(pt.x, pt.y, 50 * dpr, 8 * dpr, t.fireHealth, '#ef4444');
+          }
+        }
+      }
+
+      if (state.showGuide && state.players[0]) {
+        const prompt = getContextPromptForP1();
+        const tc = getTargetTileCoord(state.players[0]);
+        if (prompt && tc) {
+          const pt = projectTo2D(worldX(tc.c + 0.5), 1.94, worldZ(tc.r + 0.5));
+          drawPill(pt.x, pt.y, prompt, 'rgba(245, 158, 11, 0.96)', '#1c1917', dpr, 11);
+        }
+      }
+
+      fxCtx.textAlign = 'center'; fxCtx.textBaseline = 'middle';
+      state.players.forEach(p => {
+        const pt = projectTo2D(worldX(p.x), 1.62, worldZ(p.y));
+        const label = p.id === 0 ? 'P1' : (state.mode === 'ai' ? 'AI' : 'P2');
+        fxCtx.font = `900 ${Math.round(12 * dpr)}px Inter, sans-serif`;
+        fxCtx.lineWidth = 3.5 * dpr; fxCtx.strokeStyle = '#1c1917';
+        fxCtx.strokeText(label, pt.x, pt.y);
+        fxCtx.fillStyle = p.color; fxCtx.fillText(label, pt.x, pt.y);
+      });
+
+      state.popups.forEach(pp => {
+        const pt = projectTo2D(worldX(pp.x), pp.h, worldZ(pp.y));
+        fxCtx.globalAlpha = Math.max(0, pp.life / pp.maxLife);
+        fxCtx.font = `900 ${Math.round(15 * dpr)}px Inter, sans-serif`;
+        fxCtx.lineWidth = 4 * dpr; fxCtx.strokeStyle = '#1c1917';
+        fxCtx.strokeText(pp.text, pt.x, pt.y);
+        fxCtx.fillStyle = pp.color; fxCtx.fillText(pp.text, pt.x, pt.y);
+      });
+      fxCtx.globalAlpha = 1;
+    }
+
+    function drawHudBar(cx, cy, w, h, ratio, color) {
+      fxCtx.fillStyle = 'rgba(28,25,23,0.92)';
+      fxCtx.fillRect(cx - w / 2, cy - h / 2, w, h);
+      fxCtx.fillStyle = color;
+      fxCtx.fillRect(cx - w / 2 + 2, cy - h / 2 + 2, (w - 4) * Math.max(0, Math.min(1, ratio)), h - 4);
+    }
+
+    function resizeCanvas() {
+      const rect = canvasShell.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.max(320, Math.floor(rect.width)), h = Math.max(200, Math.floor(rect.height));
+      fxCanvas.width = Math.floor(w * dpr); fxCanvas.height = Math.floor(h * dpr);
+      if (G3.ok && G3.renderer && G3.camera) {
+        G3.camera.aspect = w / h; G3.camera.updateProjectionMatrix(); G3.renderer.setSize(w, h, false);
+      }
+    }
+
+    // =========================================================================
+    // HUD & WORKSHOP CLIPBOARD ORDER TICKETS
+    // =========================================================================
+    function updateHUD(forceOrders = false) {
+      hudScore.textContent = state.score;
+      if (state.combo > 1) {
+        hudComboWrap.classList.remove('hidden'); hudComboWrap.classList.add('flex');
+        hudCombo.textContent = state.combo;
+      } else {
+        hudComboWrap.classList.add('hidden'); hudComboWrap.classList.remove('flex');
+      }
+      if (state.combo >= 3) {
+        hudOverclockBadge.classList.remove('hidden'); hudOverclockBadge.classList.add('flex');
+      } else {
+        hudOverclockBadge.classList.add('hidden'); hudOverclockBadge.classList.remove('flex');
+      }
+
+      const sec = Math.ceil(state.timeLeft);
+      hudTimer.textContent = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+      hudTimerBox.classList.toggle('border-rose-500', sec <= 20);
+      hudTimerBox.classList.toggle('text-rose-400', sec <= 20);
+
+      if (forceOrders) renderOrdersDOM();
+      else {
+        state.orders.forEach(o => {
+          const bar = document.getElementById('order-bar-' + o.id);
+          if (bar) {
+            const pct = Math.max(0, Math.min(100, (o.timeLeft / o.maxTime) * 100));
+            bar.style.width = pct + '%';
+            bar.style.backgroundColor = pct < 28 ? '#ef4444' : pct < 55 ? '#f59e0b' : '#22c55e';
+          }
+        });
+      }
+    }
+
+    function renderOrdersDOM() {
+      ordersStrip.innerHTML = '';
+      state.orders.forEach(o => {
+        const rec = RECIPES.find(r => r.id === o.recipeId);
+        if (!rec) return;
+        const pct = Math.max(0, Math.min(100, (o.timeLeft / o.maxTime) * 100));
+        const partBadges = rec.parts.map(pt => {
+          const cls = pt === 'welded_frame' ? 'bg-amber-500/20 text-amber-200 border-amber-500/40'
+            : pt === 'charged_battery' ? 'bg-emerald-500/20 text-emerald-200 border-emerald-500/40'
+            : 'bg-cyan-500/20 text-cyan-200 border-cyan-500/40';
+          const shortName = pt === 'welded_frame' ? '🔥Las' : pt === 'charged_battery' ? '⚡Cas' : '💻Chip';
+          return `<span class="px-1.5 py-0.5 rounded-md border text-[9px] sm:text-[10px] font-extrabold ${cls}">${shortName}</span>`;
+        }).join('');
+        const card = document.createElement('div');
+        card.className = 'job-clipboard shrink-0 w-36 sm:w-44 rounded-xl px-2 sm:px-2.5 pt-2 pb-1.5 flex flex-col justify-between gap-1';
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[11px] sm:text-xs font-black truncate" style="color:${rec.color}">🤖 ${rec.name}</span>
+            <span class="text-[9px] sm:text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-stone-950 text-amber-300 border border-stone-800">+${rec.points}</span>
+          </div>
+          <div class="flex flex-wrap gap-1">${partBadges}</div>
+          <div class="w-full h-1.5 sm:h-2 rounded-full bg-stone-950 border border-stone-800 overflow-hidden">
+            <div id="order-bar-${o.id}" class="h-full rounded-full transition-all duration-100" style="width:${pct}%;background-color:${pct < 28 ? '#ef4444' : pct < 55 ? '#f59e0b' : '#22c55e'}"></div>
+          </div>
+        `;
+        ordersStrip.appendChild(card);
+      });
+    }
+
+    // =========================================================================
+    // GAME LIFECYCLE & NETWORKING
+    // =========================================================================
+    function startGame() {
+      SFX.init();
+      if (state.mode === 'online' && net.role === 'guest') { showToast('Menunggu Host memulai permainan...'); return; }
+      initLevel(state.mapIndex);
+      state.screen = 'playing';
+      menuOverlay.classList.add('hidden');
+      pauseOverlay.classList.add('hidden');
+      gameOverOverlay.classList.add('hidden');
+      hudBar.classList.remove('hidden'); hudBar.classList.add('flex');
+      if (touchControls) touchControls.classList.remove('hidden');
+      resizeCanvas();
+      if (state.mode === 'online' && net.role === 'host' && net.connected) {
+        sendNet({ type: 'start', mapIndex: state.mapIndex, state: serializeState() });
+      }
+    }
+
+    function finishGame() {
+      state.screen = 'gameover'; SFX.end();
+      canvasShell.classList.remove('fire-alert', 'overclock-glow');
+      if (touchControls) touchControls.classList.add('hidden');
+      resetJoystick();
+      const stars = state.score >= 950 ? 3 : state.score >= 600 ? 2 : state.score >= 300 ? 1 : 0;
+      if (stars > (state.starsRecord[state.mapIndex] || 0)) {
+        state.starsRecord[state.mapIndex] = stars; saveStars(state.starsRecord); renderMapStars();
+      }
+      document.getElementById('endStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+      document.getElementById('endScore').textContent = state.score;
+      document.getElementById('endDelivered').textContent = state.delivered;
+      document.getElementById('endMissed').textContent = state.missed;
+      document.getElementById('endCombo').textContent = 'x' + state.maxCombo;
+      gameOverOverlay.classList.remove('hidden');
+      resizeCanvas();
+      if (state.mode === 'online' && net.role === 'host' && net.connected) {
+        sendNet({ type: 'gameover', score: state.score, delivered: state.delivered, missed: state.missed, maxCombo: state.maxCombo, stars });
+      }
+    }
+
+    function returnToMenu() {
+      state.screen = 'menu';
+      pauseOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden');
+      menuOverlay.classList.remove('hidden');
+      hudBar.classList.add('hidden'); hudBar.classList.remove('flex');
+      if (touchControls) touchControls.classList.add('hidden');
+      resetJoystick();
+      hoverTooltip.classList.add('hidden');
+      canvasShell.classList.remove('fire-alert', 'overclock-glow');
+      renderMapStars();
+      resizeCanvas();
+    }
+
+    function renderMapStars() {
+      document.querySelectorAll('[data-map-stars]').forEach(el => {
+        const s = state.starsRecord[Number(el.getAttribute('data-map-stars'))] || 0;
+        el.textContent = '★'.repeat(s) + '☆'.repeat(3 - s);
+      });
+    }
+
+    function serializeState() {
+      return {
+        timeLeft: state.timeLeft, score: state.score, combo: state.combo, maxCombo: state.maxCombo,
+        delivered: state.delivered, missed: state.missed, orders: state.orders,
+        players: state.players.map(p => ({ id: p.id, x: p.x, y: p.y, fx: p.fx, fy: p.fy, item: p.item, walkPhase: p.walkPhase, moving: p.moving, dashTimer: p.dashTimer })),
+        tiles: state.tiles.map(row => row.map(t => ({ item: t.item, progress: t.progress, burnProgress: t.burnProgress, onFire: t.onFire, fireHealth: t.fireHealth }))),
+        flyingItems: state.flyingItems.map(fi => ({ id: fi.id, item: fi.item, x: fi.x, y: fi.y, life: fi.life, maxLife: fi.maxLife }))
+      };
+    }
+
+    function applyRemoteState(s) {
+      state.timeLeft = s.timeLeft; state.score = s.score; state.combo = s.combo; state.maxCombo = s.maxCombo;
+      state.delivered = s.delivered; state.missed = s.missed;
+      const changed = state.orders.map(o => o.id).join(',') !== s.orders.map(o => o.id).join(',');
+      state.orders = s.orders;
+      s.players.forEach((sp, i) => { if (state.players[i]) Object.assign(state.players[i], sp); });
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (state.tiles[r]?.[c] && s.tiles[r]?.[c]) Object.assign(state.tiles[r][c], s.tiles[r][c]);
+      state.flyingItems = s.flyingItems || [];
+      updateHUD(changed);
+    }
+
+    function sendNet(msg) {
+      if (net.bc) { try { net.bc.postMessage({ from: net.role, ...msg }); } catch (e) {} }
+      if (net.conn && net.conn.open) { try { net.conn.send(msg); } catch (e) {} }
+    }
+
+    function handleNetMessage(msg) {
+      if (!msg || !msg.type) return;
+      if (net.role === 'host') {
+        if (msg.type === 'hello') {
+          net.connected = true; setOnlineUI(true, `Room ${net.roomCode} — Pemain 2 Terhubung!`);
+          sendNet({ type: 'welcome', mapIndex: state.mapIndex }); showToast('Pemain 2 bergabung ke room!');
+        } else if (msg.type === 'input') Object.assign(remoteInput, msg.input);
+      } else if (net.role === 'guest') {
+        if (msg.type === 'welcome') {
+          net.connected = true; state.mapIndex = msg.mapIndex || 0;
+          setOnlineUI(true, `Terhubung ke Room ${net.roomCode}! Menunggu Host mulai...`); showToast('Berhasil gabung room!');
+        } else if (msg.type === 'start') {
+          state.mapIndex = msg.mapIndex || 0; initLevel(state.mapIndex); applyRemoteState(msg.state);
+          state.screen = 'playing'; menuOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden');
+          hudBar.classList.remove('hidden'); hudBar.classList.add('flex'); resizeCanvas();
+        } else if (msg.type === 'state' && state.screen === 'playing') applyRemoteState(msg.payload);
+        else if (msg.type === 'gameover') {
+          state.score = msg.score; state.delivered = msg.delivered; state.missed = msg.missed; state.maxCombo = msg.maxCombo;
+          state.screen = 'gameover';
+          document.getElementById('endStars').textContent = '★'.repeat(msg.stars) + '☆'.repeat(3 - msg.stars);
+          document.getElementById('endScore').textContent = msg.score;
+          document.getElementById('endDelivered').textContent = msg.delivered;
+          document.getElementById('endMissed').textContent = msg.missed;
+          document.getElementById('endCombo').textContent = 'x' + msg.maxCombo;
+          gameOverOverlay.classList.remove('hidden');
+        }
+      }
+    }
+
+    function setOnlineUI(connected, text) {
+      onlineSetupRow.classList.add('hidden');
+      onlineStatusBox.classList.remove('hidden'); onlineStatusBox.classList.add('flex');
+      onlineStatusText.textContent = text;
+      onlineDot.className = `w-2.5 h-2.5 rounded-full shrink-0 ${connected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`;
+      if (net.role === 'host') { btnCopyRoom.classList.remove('hidden'); btnCopyRoom.textContent = `Kode: ${net.roomCode}`; }
+      else btnCopyRoom.classList.add('hidden');
+      netBadge.classList.remove('hidden'); netBadge.classList.add('inline-flex');
+      netBadgeText.textContent = connected ? `Room ${net.roomCode}` : `Menunggu (${net.roomCode})`;
+    }
+
+    function cleanupNet() {
+      if (net.bc) { try { net.bc.close(); } catch (e) {} net.bc = null; }
+      if (net.conn) { try { net.conn.close(); } catch (e) {} net.conn = null; }
+      if (net.peer) { try { net.peer.destroy(); } catch (e) {} net.peer = null; }
+      net.role = null; net.roomCode = ''; net.connected = false;
+      onlineSetupRow.classList.remove('hidden');
+      onlineStatusBox.classList.add('hidden'); onlineStatusBox.classList.remove('flex');
+      netBadge.classList.add('hidden'); netBadge.classList.remove('inline-flex');
+    }
+
+    function createRoom() {
+      cleanupNet();
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      net.role = 'host'; net.roomCode = code;
+      setOnlineUI(false, `Room ${code} siap! Bagikan kode ke teman atau buka di tab baru.`);
+      if (typeof BroadcastChannel !== 'undefined') {
+        net.bc = new BroadcastChannel('overclocked_room_' + code);
+        net.bc.onmessage = (ev) => { if (ev.data && ev.data.from !== 'host') handleNetMessage(ev.data); };
+      }
+      if (typeof Peer !== 'undefined') {
+        try {
+          net.peer = new Peer('overclocked-robo-' + code);
+          net.peer.on('connection', (conn) => {
+            net.conn = conn;
+            conn.on('open', () => {
+              net.connected = true; setOnlineUI(true, `Room ${code} — Pemain 2 Online Terhubung!`);
+              sendNet({ type: 'welcome', mapIndex: state.mapIndex }); showToast('Pemain 2 online bergabung!');
+            });
+            conn.on('data', (data) => handleNetMessage(data));
+          });
+          net.peer.on('error', () => {});
+        } catch (e) {}
+      }
+    }
+
+    function joinRoom(rawCode) {
+      const code = (rawCode || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+      if (code.length < 4) { showToast('Masukkan 4 digit kode room.'); return; }
+      cleanupNet();
+      net.role = 'guest'; net.roomCode = code;
+      setOnlineUI(false, `Menghubungkan ke Room ${code}...`);
+      if (typeof BroadcastChannel !== 'undefined') {
+        net.bc = new BroadcastChannel('overclocked_room_' + code);
+        net.bc.onmessage = (ev) => { if (ev.data && ev.data.from !== 'guest') handleNetMessage(ev.data); };
+        sendNet({ type: 'hello' });
+      }
+      if (typeof Peer !== 'undefined') {
+        try {
+          net.peer = new Peer();
+          net.peer.on('open', () => {
+            if (net.connected) return;
+            const conn = net.peer.connect('overclocked-robo-' + code, { reliable: false });
+            net.conn = conn;
+            conn.on('open', () => sendNet({ type: 'hello' }));
+            conn.on('data', (data) => handleNetMessage(data));
+          });
+          net.peer.on('error', () => {});
+        } catch (e) {}
+      }
+    }
+
+    // =========================================================================
+    // INTERACTIVE 3D CAMERA DRAG, ZOOM & STATION HOVER RAYCAST
+    // =========================================================================
+    canvas.addEventListener('pointerdown', (e) => {
+      if (state.screen !== 'playing') return;
+      G3.dragging = true; G3.lastPointerX = e.clientX; G3.lastPointerY = e.clientY;
+    });
+    window.addEventListener('pointerup', () => { G3.dragging = false; });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!G3.ok || state.screen !== 'playing') return;
+      if (G3.dragging) {
+        const dx = e.clientX - G3.lastPointerX, dy = e.clientY - G3.lastPointerY;
+        G3.lastPointerX = e.clientX; G3.lastPointerY = e.clientY;
+        G3.orbitYaw = Math.max(-0.95, Math.min(0.95, G3.orbitYaw - dx * 0.006));
+        G3.orbitPitch = Math.max(0.42, Math.min(1.22, G3.orbitPitch + dy * 0.005));
+        hoverTooltip.classList.add('hidden'); return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      G3.pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      G3.pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      G3.raycaster.setFromCamera(G3.pointerNDC, G3.camera);
+      const hits = G3.raycaster.intersectObjects(G3.stationMeshes, false);
+      if (hits.length > 0 && hits[0].object.userData.tileCoord) {
+        const info = STATION_INFO[hits[0].object.userData.tileCoord.type];
+        if (info) { hoverTitle.textContent = info.title; hoverDesc.textContent = info.desc; hoverTooltip.classList.remove('hidden'); return; }
+      }
+      hoverTooltip.classList.add('hidden');
+    });
+    canvas.addEventListener('pointerleave', () => { hoverTooltip.classList.add('hidden'); });
+    canvas.addEventListener('wheel', (e) => {
+      if (state.screen !== 'playing') return;
+      e.preventDefault();
+      G3.orbitDist = Math.max(9.5, Math.min(18.5, G3.orbitDist + e.deltaY * 0.008));
+    }, { passive: false });
+
+    // Two-finger pinch-to-zoom on canvas for mobile
+    const activeTouches = new Map();
+    let pinchStartDist = 0, pinchStartOrbit = 0;
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (state.screen !== 'playing') return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+      }
+      if (activeTouches.size === 2) {
+        const arr = Array.from(activeTouches.values());
+        pinchStartDist = Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y);
+        pinchStartOrbit = G3.orbitDist;
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (state.screen !== 'playing') return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (activeTouches.has(t.identifier)) {
+          activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+        }
+      }
+      if (activeTouches.size === 2 && pinchStartDist > 0) {
+        const arr = Array.from(activeTouches.values());
+        const curDist = Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y);
+        if (curDist > 10) {
+          const ratio = pinchStartDist / curDist;
+          G3.orbitDist = Math.max(9.5, Math.min(22.0, pinchStartOrbit * ratio));
+        }
+      }
+    }, { passive: true });
+
+    const clearTouch = (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        activeTouches.delete(e.changedTouches[i].identifier);
+      }
+      if (activeTouches.size < 2) {
+        pinchStartDist = 0;
+      }
+    };
+    canvas.addEventListener('touchend', clearTouch, { passive: true });
+    canvas.addEventListener('touchcancel', clearTouch, { passive: true });
+
+    // =========================================================================
+    // MAIN LOOP & EVENTS
+    // =========================================================================
+    let rafId = null, lastTime = 0;
+
+    function loop(ts) {
+      const dt = Math.min(0.05, (ts - lastTime) / 1000 || 0.016);
+      lastTime = ts;
+
+      if (state.screen === 'playing') {
+        if (state.mode === 'online' && net.role === 'guest') {
+          const gInp = {
+            up: !!(keys['KeyW'] || keys['ArrowUp'] || touchInput.up),
+            down: !!(keys['KeyS'] || keys['ArrowDown'] || touchInput.down),
+            left: !!(keys['KeyA'] || keys['ArrowLeft'] || touchInput.left),
+            right: !!(keys['KeyD'] || keys['ArrowRight'] || touchInput.right),
+            action: !!(keys['KeyE'] || keys['KeyF'] || keys['Enter'] || touchInput.action),
+            throwKey: !!(keys['KeyQ'] || keys['KeyK'] || touchInput.throwKey),
+            dash: !!(keys['ShiftLeft'] || keys['ShiftRight'] || keys['Space'] || touchInput.dash)
+          };
+          if (ts - net.lastSyncSent > 35) { net.lastSyncSent = ts; sendNet({ type: 'input', input: gInp }); }
+        } else { updateSimulation(dt); }
+      }
+
+      updateVisuals3D(dt, ts * 0.001);
+      renderOverlay2D();
+      rafId = requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code) && state.screen === 'playing') e.preventDefault();
+      keys[e.code] = true;
+      if (e.code === 'Escape' && (state.screen === 'playing' || state.screen === 'paused')) togglePause();
+    });
+    window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+    function togglePause() {
+      if (state.screen === 'playing') { state.screen = 'paused'; pauseOverlay.classList.remove('hidden'); }
+      else if (state.screen === 'paused') { state.screen = 'playing'; pauseOverlay.classList.add('hidden'); }
+    }
+
+    document.querySelectorAll('.mode-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const m = btn.getAttribute('data-mode');
+        state.mode = m;
+        document.querySelectorAll('.mode-tab').forEach(b => {
+          const active = b.getAttribute('data-mode') === m;
+          b.className = active
+            ? 'mode-tab px-2 py-2 rounded-lg text-xs sm:text-sm font-extrabold transition bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 shadow'
+            : 'mode-tab px-2 py-2 rounded-lg text-xs sm:text-sm font-bold transition text-stone-300 hover:bg-stone-800';
+        });
+        if (m === 'online') {
+          onlinePanel.classList.remove('hidden');
+          modeHintText.innerHTML = '<span class="text-amber-300 font-extrabold">Mode Online:</span> Host pakai P1 (WASD/E/Q), Guest pakai P2 (WASD atau Panah).';
+        } else {
+          onlinePanel.classList.add('hidden');
+          if (m === 'ai') {
+            modeHintText.innerHTML = '<span class="text-sky-400 font-extrabold">Kamu (P1):</span> <kbd class="px-1.5 py-0.5 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">WASD</kbd> Gerak + <kbd class="px-1.5 py-0.5 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">E</kbd> Aksi + <kbd class="px-1.5 py-0.5 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Q</kbd> Lempar + <kbd class="px-1.5 py-0.5 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Shift</kbd> Dash<br/><span class="text-orange-400 font-extrabold">Partner AI (P2):</span> Otomatis bantu las, cas, coding &amp; padamkan api!';
+          } else {
+            modeHintText.innerHTML = '<span class="text-sky-400 font-extrabold">P1:</span> WASD + <kbd class="px-1 bg-stone-800 rounded text-amber-200">E</kbd> Aksi + <kbd class="px-1 bg-stone-800 rounded text-amber-200">Q</kbd> Lempar + <kbd class="px-1 bg-stone-800 rounded text-amber-200">Shift</kbd> Dash<br/><span class="text-orange-400 font-extrabold">P2:</span> Panah + <kbd class="px-1 bg-stone-800 rounded text-amber-200">Enter</kbd> Aksi + <kbd class="px-1 bg-stone-800 rounded text-amber-200">K</kbd> Lempar + <kbd class="px-1 bg-stone-800 rounded text-amber-200">R-Shift</kbd> Dash';
+          }
+        }
+      });
+    });
+
+    document.querySelectorAll('.map-card').forEach(card => {
+      card.addEventListener('click', () => {
+        state.mapIndex = Number(card.getAttribute('data-map'));
+        document.querySelectorAll('.map-card').forEach(c => {
+          const active = Number(c.getAttribute('data-map')) === state.mapIndex;
+          c.className = active
+            ? 'map-card text-left p-2.5 rounded-xl border-2 border-amber-400 bg-stone-900/95 transition hover:bg-stone-800/90'
+            : 'map-card text-left p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90';
+        });
+        initLevel(state.mapIndex);
+      });
+    });
+
+    btnStartGame.addEventListener('click', startGame);
+    btnGuideToggle.addEventListener('click', () => {
+      state.showGuide = !state.showGuide;
+      btnGuideToggle.textContent = state.showGuide ? '💡 Panduan: ON' : '💡 Panduan: OFF';
+      coachBanner.classList.toggle('hidden', !state.showGuide);
+    });
+    btnCamToggle.addEventListener('click', () => {
+      state.dynamicCam = !state.dynamicCam;
+      G3.orbitYaw = 0; G3.orbitPitch = 0.7; G3.orbitDist = 14.0;
+      btnCamToggle.textContent = state.dynamicCam ? '🎥 Dinamis' : '🎥 Statis';
+      showToast(state.dynamicCam ? 'Kamera 3D Dinamis (sudut direset)' : 'Kamera 3D Statis (drag untuk putar)');
+    });
+
+    document.getElementById('btnPause').addEventListener('click', togglePause);
+    document.getElementById('btnResume').addEventListener('click', togglePause);
+    document.getElementById('btnRestartPause').addEventListener('click', startGame);
+    document.getElementById('btnQuitPause').addEventListener('click', returnToMenu);
+    document.getElementById('btnBackMenu').addEventListener('click', returnToMenu);
+    document.getElementById('btnPlayAgain').addEventListener('click', startGame);
+    document.getElementById('btnEndMenu').addEventListener('click', returnToMenu);
+
+    document.getElementById('btnCreateRoom').addEventListener('click', createRoom);
+    document.getElementById('btnJoinRoom').addEventListener('click', () => joinRoom(document.getElementById('inputRoomCode').value));
+    document.getElementById('btnLeaveRoom').addEventListener('click', cleanupNet);
+    btnCopyRoom.addEventListener('click', () => {
+      const code = net.roomCode;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(() => showToast('Kode room disalin: ' + code)).catch(() => fallbackCopy(code));
+      } else fallbackCopy(code);
+    });
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea'); ta.value = text;
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); showToast('Kode room disalin: ' + text); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    document.getElementById('btnMute').addEventListener('click', () => {
+      SFX.muted = !SFX.muted;
+      document.getElementById('iconSoundOn').classList.toggle('hidden', SFX.muted);
+      document.getElementById('iconSoundOff').classList.toggle('hidden', !SFX.muted);
+    });
+
+    document.getElementById('btnHowTo').addEventListener('click', () => document.getElementById('modalHowTo').classList.remove('hidden'));
+    document.querySelectorAll('[data-close-modal]').forEach(btn => {
+      btn.addEventListener('click', () => document.getElementById(btn.getAttribute('data-close-modal')).classList.add('hidden'));
+    });
+
+    // =========================================================================
+    // MOBILE CONTROLS: VIRTUAL ANALOG JOYSTICK & ERGONOMIC ACTIONS
+    // =========================================================================
+    let joystickActive = false;
+    let joystickPointerId = null;
+    let joyCenterX = 0, joyCenterY = 0, joyMaxRadius = 40;
+
+    function resetJoystick() {
+      joystickActive = false;
+      joystickPointerId = null;
+      if (joystickKnob) {
+        joystickKnob.style.transform = 'translate3d(0px, 0px, 0px)';
+        joystickKnob.classList.remove('brightness-125');
+      }
+      touchInput.active = false;
+      touchInput.dx = 0;
+      touchInput.dy = 0;
+      touchInput.up = false;
+      touchInput.down = false;
+      touchInput.left = false;
+      touchInput.right = false;
+    }
+
+    if (joystickZone && joystickBase && joystickKnob) {
+      const updateJoystickFromPointer = (clientX, clientY) => {
+        const rawDx = clientX - joyCenterX;
+        const rawDy = clientY - joyCenterY;
+        const dist = Math.hypot(rawDx, rawDy);
+        const maxR = joyMaxRadius || 40;
+
+        let moveX = rawDx, moveY = rawDy;
+        if (dist > maxR) {
+          moveX = (rawDx / dist) * maxR;
+          moveY = (rawDy / dist) * maxR;
+        }
+
+        joystickKnob.style.transform = `translate3d(${moveX}px, ${moveY}px, 0px)`;
+
+        const normDist = dist / maxR;
+        if (normDist > 0.1) {
+          touchInput.active = true;
+          const clamped = Math.min(1.0, normDist);
+          touchInput.dx = (rawDx / dist) * clamped;
+          touchInput.dy = (rawDy / dist) * clamped;
+
+          touchInput.up = touchInput.dy < -0.32;
+          touchInput.down = touchInput.dy > 0.32;
+          touchInput.left = touchInput.dx < -0.32;
+          touchInput.right = touchInput.dx > 0.32;
+        } else {
+          touchInput.active = false;
+          touchInput.dx = 0;
+          touchInput.dy = 0;
+          touchInput.up = false;
+          touchInput.down = false;
+          touchInput.left = false;
+          touchInput.right = false;
+        }
+      };
+
+      joystickZone.addEventListener('pointerdown', (e) => {
+        if (state.screen !== 'playing') return;
+        e.preventDefault();
+        e.stopPropagation();
+        joystickActive = true;
+        joystickPointerId = e.pointerId;
+        try { joystickZone.setPointerCapture(e.pointerId); } catch (_) {}
+
+        const rect = joystickBase.getBoundingClientRect();
+        joyCenterX = rect.left + rect.width / 2;
+        joyCenterY = rect.top + rect.height / 2;
+        joyMaxRadius = Math.max(28, rect.width * 0.42);
+
+        joystickKnob.classList.add('brightness-125');
+        if (navigator.vibrate) try { navigator.vibrate(8); } catch (_) {}
+        updateJoystickFromPointer(e.clientX, e.clientY);
+      });
+
+      joystickZone.addEventListener('pointermove', (e) => {
+        if (!joystickActive || e.pointerId !== joystickPointerId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        updateJoystickFromPointer(e.clientX, e.clientY);
+      });
+
+      const onJoystickEnd = (e) => {
+        if (e.pointerId === joystickPointerId) {
+          try { joystickZone.releasePointerCapture(e.pointerId); } catch (_) {}
+          resetJoystick();
+        }
+      };
+      joystickZone.addEventListener('pointerup', onJoystickEnd);
+      joystickZone.addEventListener('pointercancel', onJoystickEnd);
+      joystickZone.addEventListener('pointerleave', onJoystickEnd);
+    }
+
+    document.querySelectorAll('[data-act]').forEach(btn => {
+      const act = btn.getAttribute('data-act');
+      const key = act === 'throw' ? 'throwKey' : act;
+      const set = (v) => {
+        touchInput[key] = v;
+        if (v) {
+          btn.classList.add('brightness-125', 'scale-90');
+          if (navigator.vibrate) try { navigator.vibrate(10); } catch (_) {}
+        } else {
+          btn.classList.remove('brightness-125', 'scale-90');
+        }
+      };
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+        set(true);
+      });
+      btn.addEventListener('pointerup', (e) => {
+        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        set(false);
+      });
+      btn.addEventListener('pointerleave', (e) => {
+        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        set(false);
+      });
+      btn.addEventListener('pointercancel', (e) => {
+        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        set(false);
+      });
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => { setTimeout(resizeCanvas, 150); });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', resizeCanvas);
+    }
+
+    window.onload = function () {
+      initThree();
+      renderMapStars();
+      initLevel(0);
+      resizeCanvas();
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(loop);
+    };
+  })();
+  </script>
+</body>
+</html>

@@ -416,7 +416,7 @@
               <!-- Quick Controls Summary + Play Button -->
               <div class="flex flex-col sm:flex-row items-center justify-between gap-2 pt-0.5">
                 <div id="modeHintText" class="text-[10px] sm:text-[11px] text-stone-300 bg-stone-950/90 border border-stone-800 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 w-full sm:w-auto leading-relaxed">
-                  <span class="text-sky-400 font-extrabold">Kamu (P1):</span> <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">WASD</kbd> / Touch Pad + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">E</kbd> Aksi + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Q</kbd> Lempar + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Shift</kbd> Dash<br/>
+                  <span class="text-sky-400 font-extrabold">Kamu (P1):</span> <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">WASD</kbd> / Analog Stick + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">E</kbd> Aksi + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Q</kbd> Lempar + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Shift</kbd> Dash<br/>
                   <span class="text-orange-400 font-extrabold">Partner AI (P2):</span> Otomatis bantu las, cas, coding &amp; padamkan api!
                 </div>
                 <button id="btnStartGame" type="button" class="w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 text-stone-950 font-black text-sm sm:text-base tracking-wide shadow-xl shadow-orange-600/35 arcade-btn pulse-cta shrink-0">
@@ -472,31 +472,56 @@
         </div>
       </div>
 
-      <!-- On-Screen Touch Controls (Mobile) -->
-      <div id="touchControls" class="hidden w-full shrink-0 flex items-center justify-between gap-3 sm:hidden px-1 pt-1 pb-1">
-        <!-- D-Pad (Left Thumb) -->
-        <div class="touch-group-left grid grid-cols-3 gap-1 w-28 h-28 xs:w-32 xs:h-32">
-          <div></div>
-          <button type="button" data-dir="up" class="touch-pad-btn rounded-xl bg-stone-800/90 active:bg-amber-500 active:text-stone-950 border border-stone-700/80 flex items-center justify-center text-lg font-bold shadow-md">▲</button>
-          <div></div>
-          <button type="button" data-dir="left" class="touch-pad-btn rounded-xl bg-stone-800/90 active:bg-amber-500 active:text-stone-950 border border-stone-700/80 flex items-center justify-center text-lg font-bold shadow-md">◀</button>
-          <div class="rounded-xl bg-stone-900/90 border border-stone-800 flex items-center justify-center text-[10px] text-stone-500 font-bold">P1</div>
-          <button type="button" data-dir="right" class="touch-pad-btn rounded-xl bg-stone-800/90 active:bg-amber-500 active:text-stone-950 border border-stone-700/80 flex items-center justify-center text-lg font-bold shadow-md">▶</button>
-          <div></div>
-          <button type="button" data-dir="down" class="touch-pad-btn rounded-xl bg-stone-800/90 active:bg-amber-500 active:text-stone-950 border border-stone-700/80 flex items-center justify-center text-lg font-bold shadow-md">▼</button>
-          <div></div>
-        </div>
+      <!-- On-Screen Touch Controls (Mobile Analog & Actions) -->
+      <div id="touchControls" class="hidden w-full shrink-0 flex items-center justify-between gap-2 sm:hidden px-2 pt-1 pb-1">
+        
+        <!-- Left Thumb: Virtual Analog Joystick Zone -->
+        <div id="joystickZone" class="touch-group-left relative w-28 h-28 xs:w-32 xs:h-32 flex items-center justify-center select-none touch-none">
+          <!-- Joystick Base Ring -->
+          <div id="joystickBase" class="relative w-24 h-24 xs:w-28 xs:h-28 rounded-full border-2 border-amber-500/40 bg-stone-950/75 shadow-lg shadow-black/60 flex items-center justify-center backdrop-blur-sm">
+            <!-- Crosshair direction guides -->
+            <div class="absolute top-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-amber-400/50"></div>
+            <div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-amber-400/50"></div>
+            <div class="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-amber-400/50"></div>
+            <div class="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-amber-400/50"></div>
+            <div class="w-8 h-8 rounded-full border border-amber-500/20 bg-stone-900/40 pointer-events-none"></div>
 
-        <!-- Action Controls (Right Thumb) -->
-        <div class="touch-group-right flex flex-col gap-1.5">
-          <button type="button" data-act="action" class="touch-pad-btn w-28 xs:w-32 py-2.5 xs:py-3 rounded-xl bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 font-black text-xs xs:text-sm shadow-lg flex items-center justify-center gap-1 active:scale-95 transition-transform">
-            <span>🔧</span> AKSI / RAKIT
-          </button>
-          <div class="flex gap-1.5 w-28 xs:w-32">
-            <button type="button" data-act="throw" class="touch-pad-btn flex-1 py-2 rounded-lg bg-sky-600 active:bg-sky-500 text-white font-bold text-[11px] shadow active:scale-95 transition-transform">LEMPAR</button>
-            <button type="button" data-act="dash" class="touch-pad-btn flex-1 py-2 rounded-lg bg-indigo-600 active:bg-indigo-500 text-white font-bold text-[11px] shadow active:scale-95 transition-transform">DASH</button>
+            <!-- Draggable Analog Knob -->
+            <div id="joystickKnob" class="absolute w-12 h-12 xs:w-14 xs:h-14 rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-amber-700 border-2 border-amber-200/90 shadow-xl shadow-orange-600/40 flex items-center justify-center pointer-events-none transition-transform duration-75 ease-out">
+              <div class="w-4 h-4 rounded-full bg-stone-950/40 border border-amber-200/50 flex items-center justify-center">
+                <div class="w-1.5 h-1.5 rounded-full bg-amber-200 animate-pulse"></div>
+              </div>
+            </div>
           </div>
         </div>
+
+        <!-- Center Player Badge (Compact) -->
+        <div class="hidden xs:flex flex-col items-center justify-center opacity-70 pointer-events-none select-none">
+          <span class="text-[10px] font-black tracking-widest text-amber-400 uppercase">P1 • BOLT</span>
+          <span class="text-[9px] text-stone-400">Bengkel 3D</span>
+        </div>
+
+        <!-- Right Thumb: Ergonomic Action Cluster -->
+        <div class="touch-group-right relative w-32 h-28 xs:w-36 xs:h-32 flex items-center justify-center select-none touch-none">
+          <!-- Secondary: Lempar (Top-Left of primary) -->
+          <button type="button" data-act="throw" class="touch-pad-btn absolute top-0 left-1 w-11 h-11 xs:w-12 xs:h-12 rounded-xl bg-sky-600/90 active:bg-sky-400 border border-sky-300/60 shadow-lg text-white font-extrabold flex flex-col items-center justify-center active:scale-90 transition-transform">
+            <span class="text-sm leading-none">📦</span>
+            <span class="text-[8px] font-black uppercase tracking-tight">Lempar</span>
+          </button>
+
+          <!-- Secondary: Dash (Top-Right of primary) -->
+          <button type="button" data-act="dash" class="touch-pad-btn absolute top-0 right-1 w-11 h-11 xs:w-12 xs:h-12 rounded-xl bg-indigo-600/90 active:bg-indigo-400 border border-indigo-300/60 shadow-lg text-white font-extrabold flex flex-col items-center justify-center active:scale-90 transition-transform">
+            <span class="text-sm leading-none">⚡</span>
+            <span class="text-[8px] font-black uppercase tracking-tight">Dash</span>
+          </button>
+
+          <!-- Primary: Aksi / Rakit / Ambil / Taruh (Bottom Center, Big & Prominent) -->
+          <button type="button" data-act="action" class="touch-pad-btn absolute bottom-0 right-2 xs:right-3 w-20 h-14 xs:w-24 xs:h-16 rounded-2xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 active:from-amber-300 active:to-orange-500 text-stone-950 border-2 border-amber-200/80 shadow-xl shadow-orange-600/40 font-black flex flex-col items-center justify-center active:scale-90 transition-transform pulse-cta">
+            <span class="text-base leading-none">🔧</span>
+            <span class="text-[10px] xs:text-[11px] font-black uppercase tracking-wider">AKSI / RAKIT</span>
+          </button>
+        </div>
+
       </div>
 
       <!-- Compact Workshop Station Legend Strip (Desktop) -->
@@ -777,7 +802,7 @@
     };
 
     const keys = {};
-    const touchInput = { up: false, down: false, left: false, right: false, action: false, throwKey: false, dash: false };
+    const touchInput = { active: false, dx: 0, dy: 0, up: false, down: false, left: false, right: false, action: false, throwKey: false, dash: false };
     const remoteInput = { up: false, down: false, left: false, right: false, action: false, throwKey: false, dash: false };
     const prevAction = [false, false];
     const prevThrow = [false, false];
@@ -823,6 +848,9 @@
     const toastEl = document.getElementById('toast');
     const touchControls = document.getElementById('touchControls');
     const legendStrip = document.getElementById('legendStrip');
+    const joystickZone = document.getElementById('joystickZone');
+    const joystickBase = document.getElementById('joystickBase');
+    const joystickKnob = document.getElementById('joystickKnob');
 
     let toastTimer = null;
     function showToast(msg) {
@@ -1797,12 +1825,15 @@
 
     function getLocalInput(playerIdx) {
       if (playerIdx === 0) {
+        const isAnalog = touchInput.active;
         return {
           up: !!(keys['KeyW'] || touchInput.up), down: !!(keys['KeyS'] || touchInput.down),
           left: !!(keys['KeyA'] || touchInput.left), right: !!(keys['KeyD'] || touchInput.right),
           action: !!(keys['KeyE'] || keys['KeyF'] || touchInput.action),
           throwKey: !!(keys['KeyQ'] || touchInput.throwKey),
-          dash: !!(keys['ShiftLeft'] || keys['Space'] || touchInput.dash)
+          dash: !!(keys['ShiftLeft'] || keys['Space'] || touchInput.dash),
+          dx: isAnalog ? touchInput.dx : undefined,
+          dy: isAnalog ? touchInput.dy : undefined
         };
       }
       return {
@@ -1865,14 +1896,33 @@
         p.dashTimer = Math.max(0, p.dashTimer - dt);
         p.slipCd = Math.max(0, (p.slipCd || 0) - dt);
 
-        let mx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
-        let my = (inp.down ? 1 : 0) - (inp.up ? 1 : 0);
-        p.moving = (mx !== 0 || my !== 0);
-        if (p.moving) {
-          const len = Math.hypot(mx, my); mx /= len; my /= len;
-          p.fx = mx; p.fy = my;
-          p.walkPhase += dt * (p.dashTimer > 0 ? 22 : 13);
-          if (Math.random() < 0.14) spawn3DParticles(p.x, p.y, 0.08, 0xa8a29e, 1, 0.8, -4);
+        let mx, my;
+        if (inp.dx !== undefined && inp.dy !== undefined) {
+          const rawDist = Math.hypot(inp.dx, inp.dy);
+          if (rawDist > 0.08) {
+            const clampedDist = Math.min(1.0, rawDist);
+            const normX = inp.dx / rawDist;
+            const normY = inp.dy / rawDist;
+            mx = normX * clampedDist;
+            my = normY * clampedDist;
+            p.moving = true;
+            p.fx = normX;
+            p.fy = normY;
+            p.walkPhase += dt * (p.dashTimer > 0 ? 22 : 13);
+            if (Math.random() < 0.14) spawn3DParticles(p.x, p.y, 0.08, 0xa8a29e, 1, 0.8, -4);
+          } else {
+            mx = 0; my = 0; p.moving = false;
+          }
+        } else {
+          mx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0);
+          my = (inp.down ? 1 : 0) - (inp.up ? 1 : 0);
+          p.moving = (mx !== 0 || my !== 0);
+          if (p.moving) {
+            const len = Math.hypot(mx, my); mx /= len; my /= len;
+            p.fx = mx; p.fy = my;
+            p.walkPhase += dt * (p.dashTimer > 0 ? 22 : 13);
+            if (Math.random() < 0.14) spawn3DParticles(p.x, p.y, 0.08, 0xa8a29e, 1, 0.8, -4);
+          }
         }
 
         if (justDash && p.dashCd <= 0) {
@@ -2385,6 +2435,7 @@
       state.screen = 'gameover'; SFX.end();
       canvasShell.classList.remove('fire-alert', 'overclock-glow');
       if (touchControls) touchControls.classList.add('hidden');
+      resetJoystick();
       const stars = state.score >= 950 ? 3 : state.score >= 600 ? 2 : state.score >= 300 ? 1 : 0;
       if (stars > (state.starsRecord[state.mapIndex] || 0)) {
         state.starsRecord[state.mapIndex] = stars; saveStars(state.starsRecord); renderMapStars();
@@ -2407,6 +2458,7 @@
       menuOverlay.classList.remove('hidden');
       hudBar.classList.add('hidden'); hudBar.classList.remove('flex');
       if (touchControls) touchControls.classList.add('hidden');
+      resetJoystick();
       hoverTooltip.classList.add('hidden');
       canvasShell.classList.remove('fire-alert', 'overclock-glow');
       renderMapStars();
@@ -2754,31 +2806,114 @@
       btn.addEventListener('click', () => document.getElementById(btn.getAttribute('data-close-modal')).classList.add('hidden'));
     });
 
-    document.querySelectorAll('[data-dir]').forEach(btn => {
-      const dir = btn.getAttribute('data-dir');
-      const set = (v) => { touchInput[dir] = v; };
-      btn.addEventListener('pointerdown', (e) => {
+    // =========================================================================
+    // MOBILE CONTROLS: VIRTUAL ANALOG JOYSTICK & ERGONOMIC ACTIONS
+    // =========================================================================
+    let joystickActive = false;
+    let joystickPointerId = null;
+    let joyCenterX = 0, joyCenterY = 0, joyMaxRadius = 40;
+
+    function resetJoystick() {
+      joystickActive = false;
+      joystickPointerId = null;
+      if (joystickKnob) {
+        joystickKnob.style.transform = 'translate3d(0px, 0px, 0px)';
+        joystickKnob.classList.remove('brightness-125');
+      }
+      touchInput.active = false;
+      touchInput.dx = 0;
+      touchInput.dy = 0;
+      touchInput.up = false;
+      touchInput.down = false;
+      touchInput.left = false;
+      touchInput.right = false;
+    }
+
+    if (joystickZone && joystickBase && joystickKnob) {
+      const updateJoystickFromPointer = (clientX, clientY) => {
+        const rawDx = clientX - joyCenterX;
+        const rawDy = clientY - joyCenterY;
+        const dist = Math.hypot(rawDx, rawDy);
+        const maxR = joyMaxRadius || 40;
+
+        let moveX = rawDx, moveY = rawDy;
+        if (dist > maxR) {
+          moveX = (rawDx / dist) * maxR;
+          moveY = (rawDy / dist) * maxR;
+        }
+
+        joystickKnob.style.transform = `translate3d(${moveX}px, ${moveY}px, 0px)`;
+
+        const normDist = dist / maxR;
+        if (normDist > 0.1) {
+          touchInput.active = true;
+          const clamped = Math.min(1.0, normDist);
+          touchInput.dx = (rawDx / dist) * clamped;
+          touchInput.dy = (rawDy / dist) * clamped;
+
+          touchInput.up = touchInput.dy < -0.32;
+          touchInput.down = touchInput.dy > 0.32;
+          touchInput.left = touchInput.dx < -0.32;
+          touchInput.right = touchInput.dx > 0.32;
+        } else {
+          touchInput.active = false;
+          touchInput.dx = 0;
+          touchInput.dy = 0;
+          touchInput.up = false;
+          touchInput.down = false;
+          touchInput.left = false;
+          touchInput.right = false;
+        }
+      };
+
+      joystickZone.addEventListener('pointerdown', (e) => {
+        if (state.screen !== 'playing') return;
         e.preventDefault();
-        try { btn.setPointerCapture(e.pointerId); } catch (_) {}
-        set(true);
+        e.stopPropagation();
+        joystickActive = true;
+        joystickPointerId = e.pointerId;
+        try { joystickZone.setPointerCapture(e.pointerId); } catch (_) {}
+
+        const rect = joystickBase.getBoundingClientRect();
+        joyCenterX = rect.left + rect.width / 2;
+        joyCenterY = rect.top + rect.height / 2;
+        joyMaxRadius = Math.max(28, rect.width * 0.42);
+
+        joystickKnob.classList.add('brightness-125');
+        if (navigator.vibrate) try { navigator.vibrate(8); } catch (_) {}
+        updateJoystickFromPointer(e.clientX, e.clientY);
       });
-      btn.addEventListener('pointerup', (e) => {
-        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
-        set(false);
+
+      joystickZone.addEventListener('pointermove', (e) => {
+        if (!joystickActive || e.pointerId !== joystickPointerId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        updateJoystickFromPointer(e.clientX, e.clientY);
       });
-      btn.addEventListener('pointerleave', (e) => {
-        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
-        set(false);
-      });
-      btn.addEventListener('pointercancel', (e) => {
-        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
-        set(false);
-      });
-    });
+
+      const onJoystickEnd = (e) => {
+        if (e.pointerId === joystickPointerId) {
+          try { joystickZone.releasePointerCapture(e.pointerId); } catch (_) {}
+          resetJoystick();
+        }
+      };
+      joystickZone.addEventListener('pointerup', onJoystickEnd);
+      joystickZone.addEventListener('pointercancel', onJoystickEnd);
+      joystickZone.addEventListener('pointerleave', onJoystickEnd);
+    }
+
     document.querySelectorAll('[data-act]').forEach(btn => {
       const act = btn.getAttribute('data-act');
       const key = act === 'throw' ? 'throwKey' : act;
-      const set = (v) => { touchInput[key] = v; };
+      const set = (v) => {
+        touchInput[key] = v;
+        if (v) {
+          btn.classList.add('brightness-125', 'scale-90');
+          if (navigator.vibrate) try { navigator.vibrate(10); } catch (_) {}
+        } else {
+          btn.classList.remove('brightness-125', 'scale-90');
+        }
+      };
       btn.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         try { btn.setPointerCapture(e.pointerId); } catch (_) {}
