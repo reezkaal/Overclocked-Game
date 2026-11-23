@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>OVERCLOCKED! 3D — Bengkel Robot Multiplayer Co-op</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -11,17 +11,30 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: manipulation;
+    }
     body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: radial-gradient(circle at 50% 0%, #2b2119 0%, #14100d 60%, #0c0907 100%);
       color: #faf5ef;
-      margin: 0;
-      overflow-x: hidden;
       user-select: none;
+      -webkit-user-select: none;
     }
     .hazard-trim {
-      height: 5px;
+      height: 4px;
       background: repeating-linear-gradient(
         -45deg,
         #f59e0b,
@@ -38,13 +51,14 @@
     .canvas-shell {
       position: relative;
       width: 100%;
-      aspect-ratio: 16 / 10;
-      max-height: 67vh;
+      height: 100%;
+      flex: 1 1 0;
+      min-height: 0;
       background: radial-gradient(circle at 50% 35%, #34281f 0%, #17120e 100%);
-      border-radius: 1.15rem;
+      border-radius: 1rem;
       overflow: hidden;
       border: 2px solid rgba(245, 158, 11, 0.34);
-      box-shadow: 0 28px 65px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(0,0,0,0.6), inset 0 0 28px rgba(0,0,0,0.45);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0,0,0,0.6), inset 0 0 28px rgba(0,0,0,0.45);
       transition: box-shadow 0.3s ease, border-color 0.3s ease;
     }
     .canvas-shell.fire-alert {
@@ -72,74 +86,130 @@
       z-index: 10;
     }
     .arcade-btn {
-      border-bottom: 4px solid rgba(0, 0, 0, 0.38);
+      border-bottom: 3px solid rgba(0, 0, 0, 0.38);
       transition: transform 0.1s ease, filter 0.15s ease;
     }
     .arcade-btn:hover { filter: brightness(1.07); }
     .arcade-btn:active {
       transform: translateY(2px);
-      border-bottom-width: 2px;
+      border-bottom-width: 1px;
     }
     .job-clipboard {
       position: relative;
       background: linear-gradient(180deg, #2b241f 0%, #1d1815 100%);
       border: 1.5px solid rgba(245, 158, 11, 0.35);
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
       transition: transform 0.2s ease;
     }
     .job-clipboard::before {
       content: '';
       position: absolute;
-      top: -5px;
+      top: -4px;
       left: 50%;
       transform: translateX(-50%);
-      width: 34px;
-      height: 7px;
+      width: 28px;
+      height: 6px;
       border-radius: 99px;
       background: linear-gradient(90deg, #a8a29e, #f5f5f4, #78716c);
       box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     }
-    .touch-pad-btn { touch-action: none; user-select: none; }
+    .touch-pad-btn {
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
     @keyframes pulseGlow {
       0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
-      50% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+      50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
     }
     .pulse-cta { animation: pulseGlow 2.2s infinite; }
+
+    /* Custom scrollbars for clean fit */
+    .custom-scrollbar::-webkit-scrollbar {
+      height: 4px;
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(28, 25, 23, 0.6);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(245, 158, 11, 0.4);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(245, 158, 11, 0.7);
+    }
+
+    /* Responsive controls behavior */
+    @media (min-width: 768px) {
+      #touchControls {
+        display: none !important;
+      }
+    }
+    @media (orientation: landscape) and (max-height: 520px) {
+      #touchControls {
+        position: absolute;
+        bottom: 8px;
+        left: 10px;
+        right: 10px;
+        margin-top: 0 !important;
+        padding: 0 !important;
+        z-index: 25;
+        pointer-events: none;
+      }
+      #touchControls .touch-group-left,
+      #touchControls .touch-group-right {
+        pointer-events: auto;
+        background: rgba(20, 16, 13, 0.75);
+        backdrop-filter: blur(6px);
+        padding: 6px;
+        border-radius: 1rem;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      }
+    }
+    @media (max-height: 720px) {
+      #legendStrip {
+        display: none !important;
+      }
+    }
   </style>
 </head>
-<body class="min-h-screen flex flex-col text-stone-100">
+<body class="h-full max-h-[100dvh] flex flex-col text-stone-100 overflow-hidden select-none">
 
   <!-- Hazard Accent Top Strip -->
-  <div class="hazard-trim w-full"></div>
+  <div class="hazard-trim w-full shrink-0"></div>
 
   <!-- Top Navigation Bar -->
-  <header class="w-full border-b border-amber-500/20 bg-stone-950/90 backdrop-blur-md sticky top-0 z-30">
-    <div class="max-w-6xl mx-auto px-3 sm:px-5 h-14 flex items-center justify-between gap-2">
-      <div class="flex items-center gap-3 min-w-0">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 via-orange-500 to-amber-700 flex items-center justify-center shadow-lg shadow-orange-600/30 border border-amber-300/40 shrink-0">
-          <svg class="w-5 h-5 text-stone-950" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+  <header class="w-full shrink-0 border-b border-amber-500/20 bg-stone-950/95 backdrop-blur-md z-30">
+    <div class="max-w-7xl mx-auto px-2.5 sm:px-4 h-11 sm:h-12 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-amber-400 via-orange-500 to-amber-700 flex items-center justify-center shadow-md shadow-orange-600/30 border border-amber-300/40 shrink-0">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-stone-950" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </div>
         <div class="leading-tight truncate">
-          <h1 class="font-black text-base sm:text-lg tracking-tight text-amber-50">
+          <h1 class="font-black text-sm sm:text-base tracking-tight text-amber-50 truncate">
             OVERCLOCKED<span class="text-amber-400">!</span>
-            <span class="text-[10px] align-top ml-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-400/40 font-extrabold">BENGKEL 3D</span>
+            <span class="text-[9px] align-top ml-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/40 font-extrabold hidden xs:inline">BENGKEL 3D</span>
           </h1>
-          <p class="text-[11px] text-stone-400 hidden sm:block">Co-op Bengkel Perakitan Robot Multiplayer</p>
+          <p class="text-[10px] text-stone-400 hidden sm:block truncate">Co-op Bengkel Perakitan Robot Multiplayer</p>
         </div>
       </div>
 
-      <div class="flex items-center gap-1.5 sm:gap-2">
-        <span id="netBadge" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/35">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <span id="netBadge" class="hidden items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/35">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           <span id="netBadgeText">Online</span>
         </span>
-        <button id="btnHowTo" type="button" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-stone-800 hover:bg-stone-700 text-amber-100 border border-stone-600/80 arcade-btn">
+        <button id="btnHowTo" type="button" class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-stone-800 hover:bg-stone-700 text-amber-100 border border-stone-600/80 arcade-btn whitespace-nowrap">
           Resep &amp; Kontrol
         </button>
-        <button id="btnMute" type="button" title="Suara" class="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-200 border border-stone-600/80 arcade-btn" aria-label="Toggle Suara">
+        <button id="btnMute" type="button" title="Suara" class="p-1.5 sm:p-2 rounded-lg bg-stone-800 hover:bg-stone-700 text-amber-200 border border-stone-600/80 arcade-btn" aria-label="Toggle Suara">
           <svg id="iconSoundOn" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
           </svg>
@@ -152,23 +222,23 @@
   </header>
 
   <!-- Main Content -->
-  <main class="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-5 py-2.5 sm:py-3.5 flex flex-col gap-2.5">
+  <main class="flex-1 min-h-0 w-full max-w-7xl mx-auto px-2 sm:px-3 py-1 sm:py-1.5 flex flex-col gap-1 sm:gap-1.5 overflow-hidden">
 
     <!-- HUD Bar (visible during gameplay) -->
-    <section id="hudBar" class="hidden flex-col gap-2">
-      <div class="workshop-panel rounded-2xl px-3.5 py-2 flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-2.5 sm:gap-3">
-          <div class="flex items-center gap-2 bg-stone-950/80 border border-amber-500/30 rounded-xl px-3 py-1">
-            <span class="text-[10px] uppercase tracking-widest text-amber-400/80 font-extrabold">Skor</span>
-            <span id="hudScore" class="text-xl sm:text-2xl font-black text-amber-300 tabular-nums">0</span>
+    <section id="hudBar" class="hidden shrink-0 flex-col gap-1 sm:gap-1.5">
+      <div class="workshop-panel rounded-xl px-2.5 sm:px-3 py-1.5 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+          <div class="flex items-center gap-1.5 bg-stone-950/80 border border-amber-500/30 rounded-lg px-2 sm:px-2.5 py-0.5 sm:py-1">
+            <span class="text-[9px] uppercase tracking-widest text-amber-400/80 font-extrabold hidden xs:inline">Skor</span>
+            <span id="hudScore" class="text-base sm:text-xl font-black text-amber-300 tabular-nums">0</span>
           </div>
-          <div id="hudComboWrap" class="hidden items-center gap-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 text-stone-950 text-xs font-black shadow-md shadow-orange-600/30">
-            🔥 COMBO x<span id="hudCombo">1</span>
+          <div id="hudComboWrap" class="hidden items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-r from-orange-600 to-amber-500 text-stone-950 text-[11px] font-black shadow-md shadow-orange-600/30">
+            🔥 x<span id="hudCombo">1</span>
           </div>
-          <div id="hudOverclockBadge" class="hidden items-center gap-1 px-2.5 py-1 rounded-xl bg-yellow-400/20 border border-yellow-400/60 text-yellow-200 text-xs font-black animate-pulse">
-            ⚡ OVERCLOCK +25%
+          <div id="hudOverclockBadge" class="hidden items-center gap-1 px-2 py-0.5 rounded-lg bg-yellow-400/20 border border-yellow-400/60 text-yellow-200 text-[11px] font-black animate-pulse">
+            ⚡ +25%
           </div>
-          <div class="hidden xl:flex items-center gap-1.5 text-xs text-stone-400 bg-stone-900/70 px-2.5 py-1 rounded-lg border border-stone-800">
+          <div class="hidden xl:flex items-center gap-1.5 text-xs text-stone-400 bg-stone-900/70 px-2 py-0.5 rounded-lg border border-stone-800">
             <span>Target:</span>
             <span class="text-amber-300 font-bold">★300</span>
             <span class="text-stone-600">•</span>
@@ -178,44 +248,44 @@
           </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-1.5">
-          <div id="hudTimerBox" class="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-stone-950 border border-stone-700 font-black text-base tabular-nums text-amber-100">
-            <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <div id="hudTimerBox" class="flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-stone-950 border border-stone-700 font-black text-sm sm:text-base tabular-nums text-amber-100">
+            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span id="hudTimer">02:30</span>
           </div>
-          <button id="btnGuideToggle" type="button" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 arcade-btn">
-            💡 Panduan: ON
+          <button id="btnGuideToggle" type="button" title="Panduan" class="px-2 py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 arcade-btn whitespace-nowrap">
+            💡 <span class="hidden sm:inline">Panduan</span>
           </button>
-          <button id="btnCamToggle" type="button" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-stone-800 hover:bg-stone-700 text-sky-200 border border-stone-600 arcade-btn">
-            🎥 Dinamis
+          <button id="btnCamToggle" type="button" title="Kamera 3D" class="px-2 py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-stone-800 hover:bg-stone-700 text-sky-200 border border-stone-600 arcade-btn whitespace-nowrap">
+            🎥 <span class="hidden sm:inline">Dinamis</span>
           </button>
-          <button id="btnPause" type="button" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-stone-800 hover:bg-stone-700 text-stone-100 border border-stone-600 arcade-btn">
+          <button id="btnPause" type="button" title="Jeda" class="px-2 py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-stone-800 hover:bg-stone-700 text-stone-100 border border-stone-600 arcade-btn">
             Jeda
           </button>
-          <button id="btnBackMenu" type="button" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600/20 hover:bg-rose-600/30 text-rose-200 border border-rose-500/40 arcade-btn">
+          <button id="btnBackMenu" type="button" title="Menu" class="px-2 py-1 rounded-lg text-[11px] sm:text-xs font-bold bg-rose-600/20 hover:bg-rose-600/30 text-rose-200 border border-rose-500/40 arcade-btn">
             Menu
           </button>
         </div>
       </div>
 
       <!-- Foreman Walkie-Talkie Live Coach Banner -->
-      <div id="coachBanner" class="flex items-center justify-between gap-2 bg-gradient-to-r from-amber-500/20 via-orange-600/15 to-stone-900/90 border border-amber-400/40 rounded-xl px-3.5 py-2 text-xs sm:text-sm shadow-lg">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <span class="px-2 py-0.5 rounded-md bg-amber-400 text-stone-950 text-[10px] font-black uppercase tracking-wider shrink-0">📻 Mandor</span>
-          <span id="coachIcon" class="text-base shrink-0">👉</span>
+      <div id="coachBanner" class="flex items-center justify-between gap-2 bg-gradient-to-r from-amber-500/15 via-orange-600/10 to-stone-900/90 border border-amber-400/30 rounded-lg px-2.5 py-1 text-[11px] sm:text-xs shadow">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="px-1.5 py-0.5 rounded bg-amber-400 text-stone-950 text-[9px] font-black uppercase tracking-wider shrink-0">📻 Mandor</span>
+          <span id="coachIcon" class="text-sm shrink-0">👉</span>
           <span id="coachText" class="font-bold text-amber-50 truncate">Ikuti panah 3D kuning! Ambil bahan lalu proses di mesin bengkel.</span>
         </div>
-        <span class="hidden md:inline-block text-[11px] text-amber-200/70 shrink-0">Drag mouse = Putar 3D • Scroll = Zoom</span>
+        <span class="hidden md:inline-block text-[10px] text-amber-200/70 shrink-0">Drag = Putar 3D • Scroll = Zoom</span>
       </div>
 
       <!-- Active Workshop Job Clipboards -->
-      <div id="ordersStrip" class="flex items-stretch gap-2.5 overflow-x-auto pt-2 pb-1 min-h-[84px]"></div>
+      <div id="ordersStrip" class="flex items-stretch gap-2 overflow-x-auto py-0.5 min-h-[64px] sm:min-h-[70px] custom-scrollbar"></div>
     </section>
 
     <!-- Game Stage Container -->
-    <section class="relative w-full flex flex-col items-center">
+    <section class="relative flex-1 min-h-0 w-full flex flex-col items-center justify-center overflow-hidden">
       <div class="canvas-shell" id="canvasShell">
         <canvas id="gameCanvas"></canvas>
         <canvas id="fxOverlayCanvas"></canvas>
@@ -227,20 +297,20 @@
         </div>
 
         <!-- Start / Lobby Overlay -->
-        <div id="menuOverlay" class="absolute inset-0 bg-stone-950/42 backdrop-blur-[1.5px] flex flex-col items-center justify-center p-3 sm:p-4 overflow-y-auto z-20">
-          <div class="w-full max-w-2xl flex flex-col my-auto workshop-panel rounded-2xl overflow-hidden shadow-2xl">
-            <div class="hazard-trim w-full"></div>
-            <div class="px-4 sm:px-6 pb-4 pt-3 flex flex-col gap-3">
+        <div id="menuOverlay" class="absolute inset-0 bg-stone-950/42 backdrop-blur-[1.5px] flex flex-col items-center justify-center p-2 sm:p-4 overflow-y-auto z-20 custom-scrollbar">
+          <div class="w-full max-w-2xl max-h-[96%] flex flex-col my-auto workshop-panel rounded-2xl overflow-hidden shadow-2xl">
+            <div class="hazard-trim w-full shrink-0"></div>
+            <div class="overflow-y-auto px-3 sm:px-6 py-2.5 sm:py-3.5 flex flex-col gap-2 sm:gap-2.5 custom-scrollbar">
               <!-- Hero Title -->
               <div class="text-center">
-                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-[11px] font-extrabold tracking-wide mb-1">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-[10px] sm:text-[11px] font-extrabold tracking-wide mb-1">
                   <span>🔧</span> BENGKEL ROBOT 3D CO-OP — 4 PETA UNIK!
                 </div>
-                <h2 class="text-2xl sm:text-3xl font-black tracking-tight text-amber-50 drop-shadow">
+                <h2 class="text-xl sm:text-3xl font-black tracking-tight text-amber-50 drop-shadow">
                   OVERCLOCKED<span class="text-amber-400">: Bengkel Kilat</span>
                 </h2>
                 <!-- 4-Step Visual Flow Strip -->
-                <div class="grid grid-cols-4 gap-1.5 mt-2.5 text-[10px] sm:text-[11px]">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2 text-[10px] sm:text-[11px]">
                   <div class="bg-stone-900/90 border border-amber-500/25 rounded-xl p-1.5">
                     <div class="font-black text-amber-400">1. AMBIL 📦</div>
                     <div class="text-stone-300">Rangka / Baterai / Chip</div>
@@ -261,20 +331,20 @@
               </div>
 
               <!-- Mode Selector Tabs -->
-              <div class="grid grid-cols-3 gap-2 bg-stone-950/90 p-1.5 rounded-xl border border-stone-800">
-                <button type="button" data-mode="ai" class="mode-tab px-2 py-2 rounded-lg text-xs sm:text-sm font-extrabold transition bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 shadow">
+              <div class="grid grid-cols-3 gap-1.5 sm:gap-2 bg-stone-950/90 p-1 sm:p-1.5 rounded-xl border border-stone-800">
+                <button type="button" data-mode="ai" class="mode-tab px-2 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-extrabold transition bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 shadow">
                   🤖 Solo + AI
                 </button>
-                <button type="button" data-mode="local" class="mode-tab px-2 py-2 rounded-lg text-xs sm:text-sm font-bold transition text-stone-300 hover:bg-stone-800">
+                <button type="button" data-mode="local" class="mode-tab px-2 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition text-stone-300 hover:bg-stone-800">
                   🎮 2P Lokal
                 </button>
-                <button type="button" data-mode="online" class="mode-tab px-2 py-2 rounded-lg text-xs sm:text-sm font-bold transition text-stone-300 hover:bg-stone-800">
+                <button type="button" data-mode="online" class="mode-tab px-2 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition text-stone-300 hover:bg-stone-800">
                   🌐 Online / Room
                 </button>
               </div>
 
               <!-- Online Room Panel -->
-              <div id="onlinePanel" class="hidden bg-stone-900/95 border border-amber-500/30 rounded-xl p-3 flex flex-col gap-2">
+              <div id="onlinePanel" class="hidden bg-stone-900/95 border border-amber-500/30 rounded-xl p-2.5 sm:p-3 flex flex-col gap-2">
                 <div class="text-xs font-extrabold text-amber-300 uppercase tracking-wider">Multiplayer Room (P2P / 2 Tab Browser)</div>
                 <div id="onlineSetupRow" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button id="btnCreateRoom" type="button" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs sm:text-sm arcade-btn">
@@ -304,8 +374,8 @@
               </div>
 
               <!-- 4 Distinct Map Cards -->
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <button type="button" data-map="0" class="map-card text-left p-2.5 rounded-xl border-2 border-amber-400 bg-stone-900/95 transition hover:bg-stone-800/90">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+                <button type="button" data-map="0" class="map-card text-left p-2 sm:p-2.5 rounded-xl border-2 border-amber-400 bg-stone-900/95 transition hover:bg-stone-800/90">
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-[11px] font-black text-amber-50 truncate">1. Garasi Pemula</span>
                   </div>
@@ -314,7 +384,7 @@
                     <span class="map-stars text-[10px] text-amber-400" data-map-stars="0">☆☆☆</span>
                   </div>
                 </button>
-                <button type="button" data-map="1" class="map-card text-left p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90">
+                <button type="button" data-map="1" class="map-card text-left p-2 sm:p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90">
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-[11px] font-black text-amber-50 truncate">2. Meja Oper</span>
                   </div>
@@ -323,7 +393,7 @@
                     <span class="map-stars text-[10px] text-amber-400" data-map-stars="1">☆☆☆</span>
                   </div>
                 </button>
-                <button type="button" data-map="2" class="map-card text-left p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90">
+                <button type="button" data-map="2" class="map-card text-left p-2 sm:p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90">
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-[11px] font-black text-amber-50 truncate">3. Jalur Belt</span>
                   </div>
@@ -332,24 +402,24 @@
                     <span class="map-stars text-[10px] text-amber-400" data-map-stars="2">☆☆☆</span>
                   </div>
                 </button>
-                <button type="button" data-map="3" class="map-card text-left p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90">
+                <button type="button" data-map="3" class="map-card text-left p-2 sm:p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90">
                   <div class="flex items-center justify-between gap-1">
                     <span class="text-[11px] font-black text-amber-50 truncate">4. Rush Hour</span>
                   </div>
                   <div class="flex items-center justify-between mt-1">
-                    <span class="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 text-[9px] font-bold">Oli Licin + 2x Las</span>
+                    <span class="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 text-[9px] font-bold">Oli + 2x Las</span>
                     <span class="map-stars text-[10px] text-amber-400" data-map-stars="3">☆☆☆</span>
                   </div>
                 </button>
               </div>
 
               <!-- Quick Controls Summary + Play Button -->
-              <div class="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-0.5">
-                <div id="modeHintText" class="text-[11px] text-stone-300 bg-stone-950/90 border border-stone-800 rounded-xl px-3 py-2 w-full sm:w-auto leading-relaxed">
-                  <span class="text-sky-400 font-extrabold">Kamu (P1):</span> <kbd class="px-1.5 py-0.5 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">WASD</kbd> Gerak + <kbd class="px-1.5 py-0.5 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">E</kbd> Aksi + <kbd class="px-1.5 py-0.5 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Q</kbd> Lempar + <kbd class="px-1.5 py-0.5 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Shift</kbd> Dash<br/>
+              <div class="flex flex-col sm:flex-row items-center justify-between gap-2 pt-0.5">
+                <div id="modeHintText" class="text-[10px] sm:text-[11px] text-stone-300 bg-stone-950/90 border border-stone-800 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 w-full sm:w-auto leading-relaxed">
+                  <span class="text-sky-400 font-extrabold">Kamu (P1):</span> <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">WASD</kbd> / Touch Pad + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">E</kbd> Aksi + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Q</kbd> Lempar + <kbd class="px-1 py-0.2 bg-stone-800 border border-stone-700 rounded text-amber-200 font-bold">Shift</kbd> Dash<br/>
                   <span class="text-orange-400 font-extrabold">Partner AI (P2):</span> Otomatis bantu las, cas, coding &amp; padamkan api!
                 </div>
-                <button id="btnStartGame" type="button" class="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 text-stone-950 font-black text-base tracking-wide shadow-xl shadow-orange-600/35 arcade-btn pulse-cta shrink-0">
+                <button id="btnStartGame" type="button" class="w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-b from-amber-400 via-orange-500 to-orange-600 text-stone-950 font-black text-sm sm:text-base tracking-wide shadow-xl shadow-orange-600/35 arcade-btn pulse-cta shrink-0">
                   MULAI SHIFT ▶
                 </button>
               </div>
@@ -358,12 +428,12 @@
         </div>
 
         <!-- Pause Overlay -->
-        <div id="pauseOverlay" class="hidden absolute inset-0 bg-stone-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 z-20">
-          <div class="workshop-panel rounded-2xl p-6 max-w-xs w-full text-center shadow-2xl">
+        <div id="pauseOverlay" class="hidden absolute inset-0 bg-stone-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-20">
+          <div class="workshop-panel rounded-2xl p-5 max-w-xs w-full text-center shadow-2xl">
             <div class="text-xs font-extrabold uppercase tracking-widest text-amber-400">Istirahat Bengkel</div>
-            <h3 class="text-2xl font-black text-amber-50 mt-1">Shift Dijeda</h3>
+            <h3 class="text-xl sm:text-2xl font-black text-amber-50 mt-1">Shift Dijeda</h3>
             <p class="text-xs text-stone-400 mt-1">Mesin las dan conveyor sedang standby.</p>
-            <div class="flex flex-col gap-2.5 mt-5">
+            <div class="flex flex-col gap-2 mt-4">
               <button id="btnResume" type="button" class="w-full py-2.5 rounded-xl bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 font-black text-sm arcade-btn">Lanjutkan</button>
               <button id="btnRestartPause" type="button" class="w-full py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-100 font-bold text-sm border border-stone-600 arcade-btn">Ulangi Shift</button>
               <button id="btnQuitPause" type="button" class="w-full py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-200 font-bold text-sm border border-rose-500/40 arcade-btn">Kembali ke Menu</button>
@@ -372,75 +442,80 @@
         </div>
 
         <!-- Game Over Overlay -->
-        <div id="gameOverOverlay" class="hidden absolute inset-0 bg-stone-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-20">
+        <div id="gameOverOverlay" class="hidden absolute inset-0 bg-stone-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-3 sm:p-4 z-20">
           <div class="workshop-panel rounded-2xl overflow-hidden max-w-sm w-full text-center shadow-2xl">
             <div class="hazard-trim w-full"></div>
-            <div class="p-6">
+            <div class="p-5 sm:p-6">
               <div class="text-xs font-extrabold uppercase tracking-widest text-amber-400">Laporan Shift Selesai!</div>
-              <div id="endStars" class="text-4xl my-2 tracking-widest text-amber-400 drop-shadow">★★★</div>
-              <div class="text-3xl font-black text-amber-50 tabular-nums"><span id="endScore">0</span> <span class="text-sm font-semibold text-stone-400">pts</span></div>
-              <div class="grid grid-cols-3 gap-2 my-4 text-center">
-                <div class="bg-stone-950/90 rounded-xl p-2.5 border border-stone-800">
-                  <div class="text-lg font-black text-emerald-400" id="endDelivered">0</div>
+              <div id="endStars" class="text-3xl sm:text-4xl my-1.5 sm:my-2 tracking-widest text-amber-400 drop-shadow">★★★</div>
+              <div class="text-2xl sm:text-3xl font-black text-amber-50 tabular-nums"><span id="endScore">0</span> <span class="text-sm font-semibold text-stone-400">pts</span></div>
+              <div class="grid grid-cols-3 gap-1.5 sm:gap-2 my-3 text-center">
+                <div class="bg-stone-950/90 rounded-xl p-2 border border-stone-800">
+                  <div class="text-base sm:text-lg font-black text-emerald-400" id="endDelivered">0</div>
                   <div class="text-[10px] text-stone-400 font-semibold">Terkirim</div>
                 </div>
-                <div class="bg-stone-950/90 rounded-xl p-2.5 border border-stone-800">
-                  <div class="text-lg font-black text-rose-400" id="endMissed">0</div>
+                <div class="bg-stone-950/90 rounded-xl p-2 border border-stone-800">
+                  <div class="text-base sm:text-lg font-black text-rose-400" id="endMissed">0</div>
                   <div class="text-[10px] text-stone-400 font-semibold">Hangus</div>
                 </div>
-                <div class="bg-stone-950/90 rounded-xl p-2.5 border border-stone-800">
-                  <div class="text-lg font-black text-amber-400" id="endCombo">x1</div>
+                <div class="bg-stone-950/90 rounded-xl p-2 border border-stone-800">
+                  <div class="text-base sm:text-lg font-black text-amber-400" id="endCombo">x1</div>
                   <div class="text-[10px] text-stone-400 font-semibold">Max Combo</div>
                 </div>
               </div>
-              <div class="flex gap-2.5">
-                <button id="btnPlayAgain" type="button" class="flex-1 py-2.5 rounded-xl bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 font-black text-sm arcade-btn">Main Lagi</button>
-                <button id="btnEndMenu" type="button" class="flex-1 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-100 font-bold text-sm border border-stone-600 arcade-btn">Pilih Peta</button>
+              <div class="flex gap-2">
+                <button id="btnPlayAgain" type="button" class="flex-1 py-2.5 rounded-xl bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 font-black text-xs sm:text-sm arcade-btn">Main Lagi</button>
+                <button id="btnEndMenu" type="button" class="flex-1 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-100 font-bold text-xs sm:text-sm border border-stone-600 arcade-btn">Pilih Peta</button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- On-Screen Touch Controls -->
-      <div id="touchControls" class="w-full mt-3 flex items-center justify-between gap-4 sm:hidden px-1">
-        <div class="grid grid-cols-3 gap-1.5 w-36 h-36">
+      <!-- On-Screen Touch Controls (Mobile) -->
+      <div id="touchControls" class="hidden w-full shrink-0 flex items-center justify-between gap-3 sm:hidden px-1 pt-1 pb-1">
+        <!-- D-Pad (Left Thumb) -->
+        <div class="touch-group-left grid grid-cols-3 gap-1 w-28 h-28 xs:w-32 xs:h-32">
           <div></div>
-          <button type="button" data-dir="up" class="touch-pad-btn rounded-xl bg-stone-800 active:bg-amber-500 active:text-stone-950 border border-stone-700 flex items-center justify-center text-lg font-bold">▲</button>
+          <button type="button" data-dir="up" class="touch-pad-btn rounded-xl bg-stone-800/90 active:bg-amber-500 active:text-stone-950 border border-stone-700/80 flex items-center justify-center text-lg font-bold shadow-md">▲</button>
           <div></div>
-          <button type="button" data-dir="left" class="touch-pad-btn rounded-xl bg-stone-800 active:bg-amber-500 active:text-stone-950 border border-stone-700 flex items-center justify-center text-lg font-bold">◀</button>
-          <div class="rounded-xl bg-stone-900 border border-stone-800 flex items-center justify-center text-[10px] text-stone-500 font-bold">P1</div>
-          <button type="button" data-dir="right" class="touch-pad-btn rounded-xl bg-stone-800 active:bg-amber-500 active:text-stone-950 border border-stone-700 flex items-center justify-center text-lg font-bold">▶</button>
+          <button type="button" data-dir="left" class="touch-pad-btn rounded-xl bg-stone-800/90 active:bg-amber-500 active:text-stone-950 border border-stone-700/80 flex items-center justify-center text-lg font-bold shadow-md">◀</button>
+          <div class="rounded-xl bg-stone-900/90 border border-stone-800 flex items-center justify-center text-[10px] text-stone-500 font-bold">P1</div>
+          <button type="button" data-dir="right" class="touch-pad-btn rounded-xl bg-stone-800/90 active:bg-amber-500 active:text-stone-950 border border-stone-700/80 flex items-center justify-center text-lg font-bold shadow-md">▶</button>
           <div></div>
-          <button type="button" data-dir="down" class="touch-pad-btn rounded-xl bg-stone-800 active:bg-amber-500 active:text-stone-950 border border-stone-700 flex items-center justify-center text-lg font-bold">▼</button>
+          <button type="button" data-dir="down" class="touch-pad-btn rounded-xl bg-stone-800/90 active:bg-amber-500 active:text-stone-950 border border-stone-700/80 flex items-center justify-center text-lg font-bold shadow-md">▼</button>
           <div></div>
         </div>
-        <div class="flex flex-col gap-2">
-          <button type="button" data-act="action" class="touch-pad-btn w-28 py-3.5 rounded-2xl bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 font-black text-sm shadow-lg">AKSI / RAKIT</button>
-          <div class="flex gap-2">
-            <button type="button" data-act="throw" class="touch-pad-btn flex-1 py-2.5 rounded-xl bg-sky-600 active:bg-sky-500 text-white font-bold text-xs">LEMPAR</button>
-            <button type="button" data-act="dash" class="touch-pad-btn flex-1 py-2.5 rounded-xl bg-indigo-600 active:bg-indigo-500 text-white font-bold text-xs">DASH</button>
+
+        <!-- Action Controls (Right Thumb) -->
+        <div class="touch-group-right flex flex-col gap-1.5">
+          <button type="button" data-act="action" class="touch-pad-btn w-28 xs:w-32 py-2.5 xs:py-3 rounded-xl bg-gradient-to-b from-amber-400 to-orange-500 text-stone-950 font-black text-xs xs:text-sm shadow-lg flex items-center justify-center gap-1 active:scale-95 transition-transform">
+            <span>🔧</span> AKSI / RAKIT
+          </button>
+          <div class="flex gap-1.5 w-28 xs:w-32">
+            <button type="button" data-act="throw" class="touch-pad-btn flex-1 py-2 rounded-lg bg-sky-600 active:bg-sky-500 text-white font-bold text-[11px] shadow active:scale-95 transition-transform">LEMPAR</button>
+            <button type="button" data-act="dash" class="touch-pad-btn flex-1 py-2 rounded-lg bg-indigo-600 active:bg-indigo-500 text-white font-bold text-[11px] shadow active:scale-95 transition-transform">DASH</button>
           </div>
         </div>
       </div>
 
       <!-- Compact Workshop Station Legend Strip (Desktop) -->
-      <div class="w-full mt-2 hidden sm:grid grid-cols-4 gap-2 text-[11px]">
-        <div class="workshop-panel rounded-xl px-3 py-2 flex items-center gap-2.5">
-          <span class="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/35 text-amber-300 flex items-center justify-center font-bold shrink-0">🔥</span>
-          <div><strong class="text-amber-100">Mesin Las:</strong> <span class="text-stone-400">Rangka → Las (otomatis 3 dtk)</span></div>
+      <div id="legendStrip" class="w-full shrink-0 hidden sm:grid grid-cols-4 gap-2 text-[11px] mt-1">
+        <div class="workshop-panel rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/35 text-amber-300 flex items-center justify-center font-bold shrink-0 text-xs">🔥</span>
+          <div class="leading-tight"><strong class="text-amber-100">Mesin Las:</strong> <span class="text-stone-400">Rangka → Las (3 dtk)</span></div>
         </div>
-        <div class="workshop-panel rounded-xl px-3 py-2 flex items-center gap-2.5">
-          <span class="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/35 text-emerald-300 flex items-center justify-center font-bold shrink-0">⚡</span>
-          <div><strong class="text-amber-100">Dock Cas:</strong> <span class="text-stone-400">Baterai → Penuh (otomatis)</span></div>
+        <div class="workshop-panel rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-500/35 text-emerald-300 flex items-center justify-center font-bold shrink-0 text-xs">⚡</span>
+          <div class="leading-tight"><strong class="text-amber-100">Dock Cas:</strong> <span class="text-stone-400">Baterai → Penuh</span></div>
         </div>
-        <div class="workshop-panel rounded-xl px-3 py-2 flex items-center gap-2.5">
-          <span class="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/35 text-cyan-300 flex items-center justify-center font-bold shrink-0">💻</span>
-          <div><strong class="text-amber-100">Terminal Code:</strong> <span class="text-stone-400">Taruh Chip lalu <strong>tahan E</strong></span></div>
+        <div class="workshop-panel rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-500/35 text-cyan-300 flex items-center justify-center font-bold shrink-0 text-xs">💻</span>
+          <div class="leading-tight"><strong class="text-amber-100">Terminal Code:</strong> <span class="text-stone-400">Chip lalu <strong>tahan E</strong></span></div>
         </div>
-        <div class="workshop-panel rounded-xl px-3 py-2 flex items-center gap-2.5">
-          <span class="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 flex items-center justify-center font-bold shrink-0">🤖</span>
-          <div><strong class="text-amber-100">Rakit &amp; Kirim:</strong> <span class="text-stone-400">Gabung di Meja → Belt</span></div>
+        <div class="workshop-panel rounded-xl px-2.5 py-1.5 flex items-center gap-2">
+          <span class="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 flex items-center justify-center font-bold shrink-0 text-xs">🤖</span>
+          <div class="leading-tight"><strong class="text-amber-100">Rakit &amp; Kirim:</strong> <span class="text-stone-400">Meja → Belt</span></div>
         </div>
       </div>
     </section>
@@ -746,6 +821,8 @@
     const btnCamToggle = document.getElementById('btnCamToggle');
     const btnGuideToggle = document.getElementById('btnGuideToggle');
     const toastEl = document.getElementById('toast');
+    const touchControls = document.getElementById('touchControls');
+    const legendStrip = document.getElementById('legendStrip');
 
     let toastTimer = null;
     function showToast(msg) {
@@ -2104,6 +2181,12 @@
         lookX = midX * 0.6; lookZ = 0.15 + midZ * 0.6;
       }
 
+      // Responsive aspect ratio adjustment (mobile portrait camera pull-back)
+      if (G3.camera && G3.camera.aspect && G3.camera.aspect < 1.35) {
+        const aspectZoom = Math.min(2.1, 1.35 / G3.camera.aspect);
+        dist *= aspectZoom;
+      }
+
       let wantX = lookX + Math.sin(yaw) * Math.cos(pitch) * dist;
       let wantY = lookY + Math.sin(pitch) * dist;
       let wantZ = lookZ + Math.cos(yaw) * Math.cos(pitch) * dist;
@@ -2261,17 +2344,17 @@
             : pt === 'charged_battery' ? 'bg-emerald-500/20 text-emerald-200 border-emerald-500/40'
             : 'bg-cyan-500/20 text-cyan-200 border-cyan-500/40';
           const shortName = pt === 'welded_frame' ? '🔥Las' : pt === 'charged_battery' ? '⚡Cas' : '💻Chip';
-          return `<span class="px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold ${cls}">${shortName}</span>`;
+          return `<span class="px-1.5 py-0.5 rounded-md border text-[9px] sm:text-[10px] font-extrabold ${cls}">${shortName}</span>`;
         }).join('');
         const card = document.createElement('div');
-        card.className = 'job-clipboard shrink-0 w-44 sm:w-48 rounded-xl px-2.5 pt-3 pb-2 flex flex-col justify-between gap-1.5';
+        card.className = 'job-clipboard shrink-0 w-36 sm:w-44 rounded-xl px-2 sm:px-2.5 pt-2 pb-1.5 flex flex-col justify-between gap-1';
         card.innerHTML = `
           <div class="flex items-center justify-between gap-1">
-            <span class="text-xs font-black truncate" style="color:${rec.color}">🤖 ${rec.name}</span>
-            <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-stone-950 text-amber-300 border border-stone-800">+${rec.points}</span>
+            <span class="text-[11px] sm:text-xs font-black truncate" style="color:${rec.color}">🤖 ${rec.name}</span>
+            <span class="text-[9px] sm:text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-stone-950 text-amber-300 border border-stone-800">+${rec.points}</span>
           </div>
           <div class="flex flex-wrap gap-1">${partBadges}</div>
-          <div class="w-full h-2 rounded-full bg-stone-950 border border-stone-800 overflow-hidden">
+          <div class="w-full h-1.5 sm:h-2 rounded-full bg-stone-950 border border-stone-800 overflow-hidden">
             <div id="order-bar-${o.id}" class="h-full rounded-full transition-all duration-100" style="width:${pct}%;background-color:${pct < 28 ? '#ef4444' : pct < 55 ? '#f59e0b' : '#22c55e'}"></div>
           </div>
         `;
@@ -2291,6 +2374,7 @@
       pauseOverlay.classList.add('hidden');
       gameOverOverlay.classList.add('hidden');
       hudBar.classList.remove('hidden'); hudBar.classList.add('flex');
+      if (touchControls) touchControls.classList.remove('hidden');
       resizeCanvas();
       if (state.mode === 'online' && net.role === 'host' && net.connected) {
         sendNet({ type: 'start', mapIndex: state.mapIndex, state: serializeState() });
@@ -2300,6 +2384,7 @@
     function finishGame() {
       state.screen = 'gameover'; SFX.end();
       canvasShell.classList.remove('fire-alert', 'overclock-glow');
+      if (touchControls) touchControls.classList.add('hidden');
       const stars = state.score >= 950 ? 3 : state.score >= 600 ? 2 : state.score >= 300 ? 1 : 0;
       if (stars > (state.starsRecord[state.mapIndex] || 0)) {
         state.starsRecord[state.mapIndex] = stars; saveStars(state.starsRecord); renderMapStars();
@@ -2310,6 +2395,7 @@
       document.getElementById('endMissed').textContent = state.missed;
       document.getElementById('endCombo').textContent = 'x' + state.maxCombo;
       gameOverOverlay.classList.remove('hidden');
+      resizeCanvas();
       if (state.mode === 'online' && net.role === 'host' && net.connected) {
         sendNet({ type: 'gameover', score: state.score, delivered: state.delivered, missed: state.missed, maxCombo: state.maxCombo, stars });
       }
@@ -2320,9 +2406,11 @@
       pauseOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden');
       menuOverlay.classList.remove('hidden');
       hudBar.classList.add('hidden'); hudBar.classList.remove('flex');
+      if (touchControls) touchControls.classList.add('hidden');
       hoverTooltip.classList.add('hidden');
       canvasShell.classList.remove('fire-alert', 'overclock-glow');
       renderMapStars();
+      resizeCanvas();
     }
 
     function renderMapStars() {
@@ -2494,6 +2582,52 @@
       G3.orbitDist = Math.max(9.5, Math.min(18.5, G3.orbitDist + e.deltaY * 0.008));
     }, { passive: false });
 
+    // Two-finger pinch-to-zoom on canvas for mobile
+    const activeTouches = new Map();
+    let pinchStartDist = 0, pinchStartOrbit = 0;
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (state.screen !== 'playing') return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+      }
+      if (activeTouches.size === 2) {
+        const arr = Array.from(activeTouches.values());
+        pinchStartDist = Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y);
+        pinchStartOrbit = G3.orbitDist;
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (state.screen !== 'playing') return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (activeTouches.has(t.identifier)) {
+          activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+        }
+      }
+      if (activeTouches.size === 2 && pinchStartDist > 0) {
+        const arr = Array.from(activeTouches.values());
+        const curDist = Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y);
+        if (curDist > 10) {
+          const ratio = pinchStartDist / curDist;
+          G3.orbitDist = Math.max(9.5, Math.min(22.0, pinchStartOrbit * ratio));
+        }
+      }
+    }, { passive: true });
+
+    const clearTouch = (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        activeTouches.delete(e.changedTouches[i].identifier);
+      }
+      if (activeTouches.size < 2) {
+        pinchStartDist = 0;
+      }
+    };
+    canvas.addEventListener('touchend', clearTouch, { passive: true });
+    canvas.addEventListener('touchcancel', clearTouch, { passive: true });
+
     // =========================================================================
     // MAIN LOOP & EVENTS
     // =========================================================================
@@ -2623,22 +2757,52 @@
     document.querySelectorAll('[data-dir]').forEach(btn => {
       const dir = btn.getAttribute('data-dir');
       const set = (v) => { touchInput[dir] = v; };
-      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); set(true); });
-      btn.addEventListener('pointerup', () => set(false));
-      btn.addEventListener('pointerleave', () => set(false));
-      btn.addEventListener('pointercancel', () => set(false));
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+        set(true);
+      });
+      btn.addEventListener('pointerup', (e) => {
+        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        set(false);
+      });
+      btn.addEventListener('pointerleave', (e) => {
+        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        set(false);
+      });
+      btn.addEventListener('pointercancel', (e) => {
+        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        set(false);
+      });
     });
     document.querySelectorAll('[data-act]').forEach(btn => {
       const act = btn.getAttribute('data-act');
       const key = act === 'throw' ? 'throwKey' : act;
       const set = (v) => { touchInput[key] = v; };
-      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); set(true); });
-      btn.addEventListener('pointerup', () => set(false));
-      btn.addEventListener('pointerleave', () => set(false));
-      btn.addEventListener('pointercancel', () => set(false));
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+        set(true);
+      });
+      btn.addEventListener('pointerup', (e) => {
+        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        set(false);
+      });
+      btn.addEventListener('pointerleave', (e) => {
+        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        set(false);
+      });
+      btn.addEventListener('pointercancel', (e) => {
+        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        set(false);
+      });
     });
 
     window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => { setTimeout(resizeCanvas, 150); });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', resizeCanvas);
+    }
 
     window.onload = function () {
       initThree();
