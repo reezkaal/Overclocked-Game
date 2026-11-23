@@ -7,6 +7,11 @@
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+    if (typeof Peer === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"><\/script>');
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -807,7 +812,7 @@
     const prevAction = [false, false];
     const prevThrow = [false, false];
     const prevDash = [false, false];
-    const net = { role: null, roomCode: '', connected: false, bc: null, peer: null, conn: null, lastSyncSent: 0 };
+    const net = { role: null, roomCode: '', connected: false, bc: null, peer: null, conn: null, lastSyncSent: 0, handshakeTimer: null, retryTimer: null, retryCount: 0 };
 
     // =========================================================================
     // DOM ELEMENTS
@@ -2417,7 +2422,10 @@
     // =========================================================================
     function startGame() {
       SFX.init();
-      if (state.mode === 'online' && net.role === 'guest') { showToast('Menunggu Host memulai permainan...'); return; }
+      if (state.mode === 'online') {
+        if (net.role === 'guest') { showToast('Menunggu Host memulai permainan...'); return; }
+        if (net.role === 'host' && !net.connected) { showToast('Menunggu Pemain 2 terhubung ke room...'); return; }
+      }
       initLevel(state.mapIndex);
       state.screen = 'playing';
       menuOverlay.classList.add('hidden');
@@ -2493,36 +2501,116 @@
       updateHUD(changed);
     }
 
+    const PEER_CONFIG = {
+      debug: 1,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' },
+          { urls: 'stun:stun.cloudflare.com:3478' },
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ],
+        iceCandidatePoolSize: 10
+      }
+    };
+
     function sendNet(msg) {
       if (net.bc) { try { net.bc.postMessage({ from: net.role, ...msg }); } catch (e) {} }
       if (net.conn && net.conn.open) { try { net.conn.send(msg); } catch (e) {} }
+    }
+
+    function startHandshakePing() {
+      if (net.handshakeTimer) clearInterval(net.handshakeTimer);
+      let attempts = 0;
+      net.handshakeTimer = setInterval(() => {
+        if (net.connected || attempts >= 18) {
+          clearInterval(net.handshakeTimer);
+          net.handshakeTimer = null;
+          if (!net.connected && attempts >= 18 && net.role === 'guest') {
+            setOnlineUI(false, `Gagal handshake dengan Room ${net.roomCode}. Pastikan Host aktif.`);
+          }
+          return;
+        }
+        attempts++;
+        sendNet({ type: 'hello', roomCode: net.roomCode, attempt: attempts });
+      }, 900);
+    }
+
+    function selectMap(idx, broadcast = true) {
+      state.mapIndex = idx;
+      document.querySelectorAll('.map-card').forEach(c => {
+        const active = Number(c.getAttribute('data-map')) === state.mapIndex;
+        c.className = active
+          ? 'map-card text-left p-2 sm:p-2.5 rounded-xl border-2 border-amber-400 bg-stone-900/95 transition hover:bg-stone-800/90'
+          : 'map-card text-left p-2 sm:p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90';
+      });
+      initLevel(state.mapIndex);
+      if (broadcast && state.mode === 'online' && net.role === 'host' && net.connected) {
+        sendNet({ type: 'map', mapIndex: state.mapIndex });
+      }
     }
 
     function handleNetMessage(msg) {
       if (!msg || !msg.type) return;
       if (net.role === 'host') {
         if (msg.type === 'hello') {
-          net.connected = true; setOnlineUI(true, `Room ${net.roomCode} — Pemain 2 Terhubung!`);
-          sendNet({ type: 'welcome', mapIndex: state.mapIndex }); showToast('Pemain 2 bergabung ke room!');
-        } else if (msg.type === 'input') Object.assign(remoteInput, msg.input);
+          net.connected = true;
+          setOnlineUI(true, `Room ${net.roomCode} — Pemain 2 Terhubung!`);
+          sendNet({ type: 'welcome', mapIndex: state.mapIndex });
+          showToast('Pemain 2 online bergabung!');
+        } else if (msg.type === 'welcome_ack') {
+          net.connected = true;
+          setOnlineUI(true, `Room ${net.roomCode} — Pemain 2 Terhubung!`);
+        } else if (msg.type === 'input') {
+          Object.assign(remoteInput, msg.input);
+        }
       } else if (net.role === 'guest') {
         if (msg.type === 'welcome') {
-          net.connected = true; state.mapIndex = msg.mapIndex || 0;
-          setOnlineUI(true, `Terhubung ke Room ${net.roomCode}! Menunggu Host mulai...`); showToast('Berhasil gabung room!');
+          net.connected = true;
+          if (net.handshakeTimer) { clearInterval(net.handshakeTimer); net.handshakeTimer = null; }
+          if (msg.mapIndex !== undefined) selectMap(msg.mapIndex, false);
+          setOnlineUI(true, `Terhubung ke Room ${net.roomCode}! Menunggu Host mulai...`);
+          showToast('Berhasil gabung room!');
+          sendNet({ type: 'welcome_ack' });
+        } else if (msg.type === 'map') {
+          if (msg.mapIndex !== undefined) selectMap(msg.mapIndex, false);
         } else if (msg.type === 'start') {
-          state.mapIndex = msg.mapIndex || 0; initLevel(state.mapIndex); applyRemoteState(msg.state);
-          state.screen = 'playing'; menuOverlay.classList.add('hidden'); gameOverOverlay.classList.add('hidden');
-          hudBar.classList.remove('hidden'); hudBar.classList.add('flex'); resizeCanvas();
-        } else if (msg.type === 'state' && state.screen === 'playing') applyRemoteState(msg.payload);
-        else if (msg.type === 'gameover') {
+          if (msg.mapIndex !== undefined) selectMap(msg.mapIndex, false);
+          initLevel(state.mapIndex);
+          applyRemoteState(msg.state);
+          state.screen = 'playing';
+          menuOverlay.classList.add('hidden');
+          pauseOverlay.classList.add('hidden');
+          gameOverOverlay.classList.add('hidden');
+          hudBar.classList.remove('hidden');
+          hudBar.classList.add('flex');
+          if (touchControls) touchControls.classList.remove('hidden');
+          resizeCanvas();
+        } else if (msg.type === 'pause') {
+          if (msg.paused) {
+            state.screen = 'paused';
+            pauseOverlay.classList.remove('hidden');
+          } else {
+            state.screen = 'playing';
+            pauseOverlay.classList.add('hidden');
+          }
+        } else if (msg.type === 'state' && state.screen === 'playing') {
+          applyRemoteState(msg.payload);
+        } else if (msg.type === 'gameover') {
           state.score = msg.score; state.delivered = msg.delivered; state.missed = msg.missed; state.maxCombo = msg.maxCombo;
           state.screen = 'gameover';
+          if (touchControls) touchControls.classList.add('hidden');
+          resetJoystick();
           document.getElementById('endStars').textContent = '★'.repeat(msg.stars) + '☆'.repeat(3 - msg.stars);
           document.getElementById('endScore').textContent = msg.score;
           document.getElementById('endDelivered').textContent = msg.delivered;
           document.getElementById('endMissed').textContent = msg.missed;
           document.getElementById('endCombo').textContent = 'x' + msg.maxCombo;
           gameOverOverlay.classList.remove('hidden');
+          resizeCanvas();
         }
       }
     }
@@ -2531,71 +2619,159 @@
       onlineSetupRow.classList.add('hidden');
       onlineStatusBox.classList.remove('hidden'); onlineStatusBox.classList.add('flex');
       onlineStatusText.textContent = text;
-      onlineDot.className = `w-2.5 h-2.5 rounded-full shrink-0 ${connected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`;
-      if (net.role === 'host') { btnCopyRoom.classList.remove('hidden'); btnCopyRoom.textContent = `Kode: ${net.roomCode}`; }
-      else btnCopyRoom.classList.add('hidden');
+      onlineDot.className = `w-2.5 h-2.5 rounded-full shrink-0 ${connected ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'bg-amber-400 animate-pulse'}`;
+      if (net.role === 'host') {
+        btnCopyRoom.classList.remove('hidden');
+        btnCopyRoom.textContent = `Kode: ${net.roomCode}`;
+        btnStartGame.textContent = connected ? '🚀 MULAI GAME (HOST)' : '⏳ MENUNGGU P2...';
+      } else {
+        btnCopyRoom.classList.add('hidden');
+        btnStartGame.textContent = connected ? '⏳ MENUNGGU HOST MULAI...' : '⏳ MENGHUBUNGKAN...';
+      }
       netBadge.classList.remove('hidden'); netBadge.classList.add('inline-flex');
-      netBadgeText.textContent = connected ? `Room ${net.roomCode}` : `Menunggu (${net.roomCode})`;
+      netBadgeText.textContent = connected ? `Room ${net.roomCode}` : `Menghubungkan (${net.roomCode})`;
     }
 
     function cleanupNet() {
+      if (net.handshakeTimer) { clearInterval(net.handshakeTimer); net.handshakeTimer = null; }
+      if (net.retryTimer) { clearTimeout(net.retryTimer); net.retryTimer = null; }
       if (net.bc) { try { net.bc.close(); } catch (e) {} net.bc = null; }
       if (net.conn) { try { net.conn.close(); } catch (e) {} net.conn = null; }
       if (net.peer) { try { net.peer.destroy(); } catch (e) {} net.peer = null; }
-      net.role = null; net.roomCode = ''; net.connected = false;
+      net.role = null; net.roomCode = ''; net.connected = false; net.retryCount = 0;
       onlineSetupRow.classList.remove('hidden');
       onlineStatusBox.classList.add('hidden'); onlineStatusBox.classList.remove('flex');
       netBadge.classList.add('hidden'); netBadge.classList.remove('inline-flex');
+      btnStartGame.textContent = '🚀 MULAI GAME';
+    }
+
+    function bindConnectionEvents(conn, isHost) {
+      net.conn = conn;
+      conn.on('open', () => {
+        if (isHost) {
+          net.connected = true;
+          setOnlineUI(true, `Room ${net.roomCode} — Pemain 2 Terhubung!`);
+          sendNet({ type: 'welcome', mapIndex: state.mapIndex });
+          showToast('Pemain 2 terhubung ke room!');
+        } else {
+          sendNet({ type: 'hello', roomCode: net.roomCode });
+          startHandshakePing();
+        }
+      });
+      conn.on('data', (data) => handleNetMessage(data));
+      conn.on('close', () => {
+        if (net.connected) {
+          net.connected = false;
+          showToast(isHost ? 'Pemain 2 terputus.' : 'Koneksi ke Host terputus.');
+          setOnlineUI(false, isHost ? `Pemain 2 terputus. Menunggu kembali (Room ${net.roomCode})...` : 'Terputus dari Host.');
+        }
+      });
+      conn.on('error', (err) => {
+        console.warn('DataConnection error:', err);
+      });
     }
 
     function createRoom() {
       cleanupNet();
+      state.mode = 'online';
       const code = String(Math.floor(1000 + Math.random() * 9000));
       net.role = 'host'; net.roomCode = code;
-      setOnlineUI(false, `Room ${code} siap! Bagikan kode ke teman atau buka di tab baru.`);
+      setOnlineUI(false, `⏳ Menyiapkan Room ${code} ke server online...`);
+
       if (typeof BroadcastChannel !== 'undefined') {
-        net.bc = new BroadcastChannel('overclocked_room_' + code);
-        net.bc.onmessage = (ev) => { if (ev.data && ev.data.from !== 'host') handleNetMessage(ev.data); };
+        try {
+          net.bc = new BroadcastChannel('overclocked_room_' + code);
+          net.bc.onmessage = (ev) => { if (ev.data && ev.data.from !== 'host') handleNetMessage(ev.data); };
+        } catch (e) {}
       }
+
       if (typeof Peer !== 'undefined') {
         try {
-          net.peer = new Peer('overclocked-robo-' + code);
-          net.peer.on('connection', (conn) => {
-            net.conn = conn;
-            conn.on('open', () => {
-              net.connected = true; setOnlineUI(true, `Room ${code} — Pemain 2 Online Terhubung!`);
-              sendNet({ type: 'welcome', mapIndex: state.mapIndex }); showToast('Pemain 2 online bergabung!');
-            });
-            conn.on('data', (data) => handleNetMessage(data));
+          const hostPeerId = 'oc-robo-' + code.toLowerCase();
+          net.peer = new Peer(hostPeerId, PEER_CONFIG);
+
+          net.peer.on('open', () => {
+            setOnlineUI(false, `Room ${code} Siap! Bagikan kode ${code} ke teman.`);
+            showToast(`Room ${code} siap!`);
           });
-          net.peer.on('error', () => {});
-        } catch (e) {}
+
+          net.peer.on('connection', (conn) => {
+            bindConnectionEvents(conn, true);
+          });
+
+          net.peer.on('error', (err) => {
+            console.warn('Host Peer error:', err);
+            if (err.type === 'unavailable-id') {
+              createRoom();
+            } else if (err.type === 'network' || err.type === 'server-error') {
+              setOnlineUI(false, 'Gagal koneksi ke server sinyal. Periksa internet.');
+            } else {
+              setOnlineUI(false, `Status: ${err.type || 'Koneksi error'}`);
+            }
+          });
+        } catch (e) {
+          console.error('Peer creation failed:', e);
+          setOnlineUI(false, 'Gagal menginisialisasi online peer.');
+        }
+      } else {
+        setOnlineUI(false, `Room ${code} siap di browser ini (PeerJS offline).`);
       }
     }
 
     function joinRoom(rawCode) {
-      const code = (rawCode || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+      const code = (rawCode || '').trim().replace(/[^0-9A-Za-z]/g, '').toUpperCase();
       if (code.length < 4) { showToast('Masukkan 4 digit kode room.'); return; }
       cleanupNet();
+      state.mode = 'online';
       net.role = 'guest'; net.roomCode = code;
       setOnlineUI(false, `Menghubungkan ke Room ${code}...`);
+
       if (typeof BroadcastChannel !== 'undefined') {
-        net.bc = new BroadcastChannel('overclocked_room_' + code);
-        net.bc.onmessage = (ev) => { if (ev.data && ev.data.from !== 'guest') handleNetMessage(ev.data); };
-        sendNet({ type: 'hello' });
+        try {
+          net.bc = new BroadcastChannel('overclocked_room_' + code);
+          net.bc.onmessage = (ev) => { if (ev.data && ev.data.from !== 'guest') handleNetMessage(ev.data); };
+          sendNet({ type: 'hello', roomCode: code });
+        } catch (e) {}
       }
+
       if (typeof Peer !== 'undefined') {
         try {
-          net.peer = new Peer();
+          net.peer = new Peer(undefined, PEER_CONFIG);
+
           net.peer.on('open', () => {
             if (net.connected) return;
-            const conn = net.peer.connect('overclocked-robo-' + code, { reliable: false });
-            net.conn = conn;
-            conn.on('open', () => sendNet({ type: 'hello' }));
-            conn.on('data', (data) => handleNetMessage(data));
+            const targetHostId = 'oc-robo-' + code.toLowerCase();
+            const conn = net.peer.connect(targetHostId, { reliable: true });
+            bindConnectionEvents(conn, false);
           });
-          net.peer.on('error', () => {});
-        } catch (e) {}
+
+          net.peer.on('error', (err) => {
+            console.warn('Guest Peer error:', err);
+            if (err.type === 'peer-unavailable') {
+              if (net.retryCount < 2) {
+                net.retryCount++;
+                setOnlineUI(false, `Mencari Room ${code} (mencoba ulang ${net.retryCount}/2)...`);
+                net.retryTimer = setTimeout(() => {
+                  if (net.role === 'guest' && !net.connected && net.peer && !net.peer.destroyed) {
+                    const targetHostId = 'oc-robo-' + code.toLowerCase();
+                    const conn = net.peer.connect(targetHostId, { reliable: true });
+                    bindConnectionEvents(conn, false);
+                  }
+                }, 1600);
+                return;
+              }
+              setOnlineUI(false, `Room ${code} tidak ditemukan. Pastikan Host sudah buat room & kodenya benar.`);
+              showToast(`Room ${code} tidak ditemukan.`);
+            } else if (err.type === 'network' || err.type === 'server-error') {
+              setOnlineUI(false, 'Gagal koneksi ke server sinyal. Periksa internet.');
+            } else {
+              setOnlineUI(false, `Gagal: ${err.type || 'Koneksi error'}`);
+            }
+          });
+        } catch (e) {
+          console.error('Guest Peer failed:', e);
+          setOnlineUI(false, 'Gagal menginisialisasi online peer.');
+        }
       }
     }
 
@@ -2691,6 +2867,7 @@
 
       if (state.screen === 'playing') {
         if (state.mode === 'online' && net.role === 'guest') {
+          const isAnalog = touchInput.active;
           const gInp = {
             up: !!(keys['KeyW'] || keys['ArrowUp'] || touchInput.up),
             down: !!(keys['KeyS'] || keys['ArrowDown'] || touchInput.down),
@@ -2698,7 +2875,9 @@
             right: !!(keys['KeyD'] || keys['ArrowRight'] || touchInput.right),
             action: !!(keys['KeyE'] || keys['KeyF'] || keys['Enter'] || touchInput.action),
             throwKey: !!(keys['KeyQ'] || keys['KeyK'] || touchInput.throwKey),
-            dash: !!(keys['ShiftLeft'] || keys['ShiftRight'] || keys['Space'] || touchInput.dash)
+            dash: !!(keys['ShiftLeft'] || keys['ShiftRight'] || keys['Space'] || touchInput.dash),
+            dx: isAnalog ? touchInput.dx : undefined,
+            dy: isAnalog ? touchInput.dy : undefined
           };
           if (ts - net.lastSyncSent > 35) { net.lastSyncSent = ts; sendNet({ type: 'input', input: gInp }); }
         } else { updateSimulation(dt); }
@@ -2717,8 +2896,19 @@
     window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
     function togglePause() {
-      if (state.screen === 'playing') { state.screen = 'paused'; pauseOverlay.classList.remove('hidden'); }
-      else if (state.screen === 'paused') { state.screen = 'playing'; pauseOverlay.classList.add('hidden'); }
+      if (state.screen === 'playing') {
+        state.screen = 'paused';
+        pauseOverlay.classList.remove('hidden');
+        if (state.mode === 'online' && net.role === 'host' && net.connected) {
+          sendNet({ type: 'pause', paused: true });
+        }
+      } else if (state.screen === 'paused') {
+        state.screen = 'playing';
+        pauseOverlay.classList.add('hidden');
+        if (state.mode === 'online' && net.role === 'host' && net.connected) {
+          sendNet({ type: 'pause', paused: false });
+        }
+      }
     }
 
     document.querySelectorAll('.mode-tab').forEach(btn => {
@@ -2747,14 +2937,7 @@
 
     document.querySelectorAll('.map-card').forEach(card => {
       card.addEventListener('click', () => {
-        state.mapIndex = Number(card.getAttribute('data-map'));
-        document.querySelectorAll('.map-card').forEach(c => {
-          const active = Number(c.getAttribute('data-map')) === state.mapIndex;
-          c.className = active
-            ? 'map-card text-left p-2.5 rounded-xl border-2 border-amber-400 bg-stone-900/95 transition hover:bg-stone-800/90'
-            : 'map-card text-left p-2.5 rounded-xl border border-stone-700 bg-stone-900/80 transition hover:bg-stone-800/90';
-        });
-        initLevel(state.mapIndex);
+        selectMap(Number(card.getAttribute('data-map')), true);
       });
     });
 
@@ -2780,7 +2963,14 @@
     document.getElementById('btnEndMenu').addEventListener('click', returnToMenu);
 
     document.getElementById('btnCreateRoom').addEventListener('click', createRoom);
-    document.getElementById('btnJoinRoom').addEventListener('click', () => joinRoom(document.getElementById('inputRoomCode').value));
+    const inputRoomCode = document.getElementById('inputRoomCode');
+    document.getElementById('btnJoinRoom').addEventListener('click', () => joinRoom(inputRoomCode.value));
+    inputRoomCode.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        joinRoom(inputRoomCode.value);
+      }
+    });
     document.getElementById('btnLeaveRoom').addEventListener('click', cleanupNet);
     btnCopyRoom.addEventListener('click', () => {
       const code = net.roomCode;
